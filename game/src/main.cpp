@@ -19,8 +19,8 @@ float amplitude = 100;
 
 float speed = 100;
 float angle = 0;
-float startPosX = 100;
-float startPosY = 100;
+float startPosX = 400;
+float startPosY = 400;
 
 void update()
 {
