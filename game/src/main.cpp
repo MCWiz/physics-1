@@ -39,11 +39,11 @@ void draw()
 
     GuiSliderBar(Rectangle{ 35, 15, 1000, 20 }, "Time", TextFormat("%.2f", time), &time, 0, 240);
 
-    GuiSliderBar(Rectangle{ 35, 45, 500, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);
-    GuiSliderBar(Rectangle{ 35, 75, 500, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle), &angle, -180, 180);
+    GuiSliderBar(Rectangle{ 35, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);
+    GuiSliderBar(Rectangle{ 35, 75, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle), &angle, -180, 180);
 
-    GuiSliderBar(Rectangle{ 650, 45, 500, 20 }, "Start", TextFormat("X: %.0f", startPosX), &startPosX, 200, 1000);
-    GuiSliderBar(Rectangle{ 650, 75, 500, 20 }, "Start", TextFormat("Y: %.0f", startPosY), &startPosY, 200, 600);
+    GuiSliderBar(Rectangle{ 650, 45, 450, 20 }, "Start", TextFormat("X: %.0f", startPosX), &startPosX, 200, 1000);
+    GuiSliderBar(Rectangle{ 650, 75, 450, 20 }, "Start", TextFormat("Y: %.0f", startPosY), &startPosY, 200, 600);
 
     DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);
 
