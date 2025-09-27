@@ -95,7 +95,7 @@ void draw()
     GuiSliderBar(Rectangle{ 35, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);
     GuiSliderBar(Rectangle{ 35, 75, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle), &angle, -180, 180);
 
-    GuiSliderBar(Rectangle{ 35, 105, 1000, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
+    GuiSliderBar(Rectangle{ 75, 105, 1000, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
 
     GuiSliderBar(Rectangle{ 650, 45, 450, 20 }, "Start", TextFormat("X: %.0f", world.startPos.x), &world.startPos.x, 200, 1000);
     GuiSliderBar(Rectangle{ 650, 75, 450, 20 }, "Start", TextFormat("Y: %.0f", world.startPos.y), &world.startPos.y, 200, 600);
