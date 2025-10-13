@@ -13,6 +13,13 @@ See documentation here: https://www.raylib.com/, and examples here: https://www.
 const unsigned int TARGET_FPS = 50;
 float dt = 1.0f / TARGET_FPS;
 float time = 0;
+
+enum PhysicsShape
+{
+    CIRCLE,
+    HALF_SPACE
+};
+
 //float x = 500;
 //float y = 500;
 //float frequency = 1;
@@ -28,9 +35,19 @@ public:
     Vector2 velocity = { 0, 0 };
     float mass = 1;
     Color color = GREEN;
-    float radius = 15;
 
-    void draw()
+    virtual void draw()
+    {
+        DrawCircle(position.x, position.y, 2, color);
+    }
+};
+
+class PhysicsCircle : public PhysicsObj
+{
+public:
+    float radius;
+
+    void draw() override
     {
         DrawLineEx(position, position + velocity, 3, RED);
 
@@ -38,14 +55,35 @@ public:
     }
 };
 
+//class PhysicsBox : public PhysicsObj
+//{
+//    Vector2 size = { 5, 5 };
+//};
+
+bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB)
+{
+    Vector2 displaceAToB = circleB->position - circleA->position;
+    float distance = Vector2Length(displaceAToB);
+    float sumOfRadii = circleA->radius + circleB->radius;
+
+    if (sumOfRadii > distance)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 class PhysicsWorld
 {
 public:
-    std::vector<PhysicsObj> objects;
+    std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
     Vector2 startPos = { 500, 500 };
 
-    void add(PhysicsObj newObj)
+    void add(PhysicsObj* newObj)
     {
         objects.push_back(newObj);
     }
@@ -54,26 +92,77 @@ public:
     {
         for (int i = 0; i < objects.size(); i++)
         {
-            objects[i].position = objects[i].position + objects[i].velocity * dt;
-            objects[i].velocity = objects[i].velocity + accelGravity * dt;
+            PhysicsObj* object = objects[i];
+
+            object->position = object->position + object->velocity * dt;
+            object->velocity = object->velocity + accelGravity * dt;
+        }
+
+        collisionCheck();
+    }
+
+    void collisionCheck()
+    {
+        for (int i = 0; i < objects.size(); i++)
+        {
+            for (int j = i + 1; j < objects.size(); j++)
+            {
+                PhysicsObj* objectPointerA = objects[i];
+                PhysicsCircle* circlePointerA = (PhysicsCircle*)objectPointerA;
+
+                PhysicsObj* objectPointerB = objects[j];
+                PhysicsCircle* circlePointerB = (PhysicsCircle*)objectPointerB;
+
+                if (CircleCircleOverlap(circlePointerA, circlePointerB))
+                {
+                    objectPointerA->color = RED;
+                    objectPointerB->color = RED;
+                }
+                else
+                {
+                    objectPointerA->color = GREEN;
+                    objectPointerB->color = GREEN;
+                }
+            }
         }
     }
 };
 
 PhysicsWorld world;
 
+void cleanup()
+{
+    for (int i = 0; i < world.objects.size(); i++)
+    {
+        PhysicsObj* object = world.objects[i];
+
+        if (object->position.y > GetScreenHeight() || object->position.y < 0
+            || object->position.x > GetScreenWidth() || object->position.x < 0)
+        {
+            auto iterator = (world.objects.begin() + i);
+            PhysicsObj* pointerToPhysicsObj = *iterator;
+            delete pointerToPhysicsObj;
+
+            world.objects.erase(iterator);
+            i--;
+        }
+    }
+}
+
 void update()
 {
     dt = 1.0f / TARGET_FPS;
     time += dt;
 
+    cleanup();
     world.update();
 
     if (IsKeyPressed(KEY_SPACE))
     {
-        PhysicsObj bird;
-        bird.position = world.startPos;
-        bird.velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
+        PhysicsCircle* bird = new PhysicsCircle();
+        bird->position = world.startPos;
+        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
+        bird->radius = 15;
         // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
 
         world.add(bird);
@@ -108,7 +197,7 @@ void draw()
 
     for (int i = 0; i < world.objects.size(); i++)
     {
-        world.objects[i].draw();
+        world.objects[i]->draw();
     }
 
     /*DrawCircle(x, y, 70, RED);
