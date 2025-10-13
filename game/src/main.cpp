@@ -27,14 +27,14 @@ public:
     Vector2 position = { 500, 500 };
     Vector2 velocity = { 0, 0 };
     float mass = 1;
+    Color color = GREEN;
     float radius = 15;
-    Color color = RED;
 
     void draw()
     {
-        DrawCircle(position.x, position.y, radius, color);
-
         DrawLineEx(position, position + velocity, 3, RED);
+
+        DrawCircle(position.x, position.y, radius, color);
     }
 };
 
@@ -74,8 +74,7 @@ void update()
         PhysicsObj bird;
         bird.position = world.startPos;
         bird.velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
-        Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
-        bird.color = randColor;
+        // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
 
         world.add(bird);
     }
