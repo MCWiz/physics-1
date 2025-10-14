@@ -35,6 +35,7 @@ public:
     Vector2 velocity = { 0, 0 };
     float mass = 1;
     Color color = GREEN;
+    bool isColliding = false;
 
     virtual void draw()
     {
@@ -115,14 +116,38 @@ public:
 
                 if (CircleCircleOverlap(circlePointerA, circlePointerB))
                 {
-                    objectPointerA->color = RED;
-                    objectPointerB->color = RED;
+                    objectPointerA->isColliding = true;
+                    objectPointerB->isColliding = true;
                 }
                 else
                 {
-                    objectPointerA->color = GREEN;
-                    objectPointerB->color = GREEN;
+                    if (objectPointerA->isColliding == true && objectPointerB->isColliding == false)
+                    {
+                        break;
+                    }
+                    else if (objectPointerA->isColliding == true && objectPointerB->isColliding == true)
+                    {
+                        objectPointerA->isColliding = false;
+                        objectPointerB->isColliding = false;
+                    }
+                    else
+                    {
+                        objectPointerA->isColliding = false;
+                        objectPointerB->isColliding = false;
+                    }
                 }
+            }
+        }
+
+        for (int i = 0; i < objects.size(); i++)
+        {
+            if (objects[i]->isColliding == true)
+            {
+                objects[i]->color = RED;
+            }
+            else
+            {
+                objects[i]->color = GREEN;
             }
         }
     }
@@ -162,7 +187,7 @@ void update()
         PhysicsCircle* bird = new PhysicsCircle();
         bird->position = world.startPos;
         bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
-        bird->radius = 15;
+        bird->radius = (rand() % 16) + 10;
         // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
 
         world.add(bird);
