@@ -146,7 +146,7 @@ class PhysicsWorld
 public:
     std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 0, 700 };
+    Vector2 startPos = { 500, 700 };
 
     void add(PhysicsObj* newObj)
     {
