@@ -146,7 +146,7 @@ class PhysicsWorld
 public:
     std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 500, 700 };
+    Vector2 startPos = { 0, 700 };
 
     void add(PhysicsObj* newObj)
     {
@@ -270,7 +270,7 @@ void draw()
     GuiSliderBar(Rectangle{ 75, 15, 1000, 20 }, "Time", TextFormat("%.2f", time), &time, 0, 240);
 
     GuiSliderBar(Rectangle{ 75, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);
-    GuiSliderBar(Rectangle{ 75, 75, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle), &angle, -180, 180);
+    GuiSliderBar(Rectangle{ 75, 75, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle * -1), &angle, -180, 180);
 
     GuiSliderBar(Rectangle{ 75, 105, 1000, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
 
@@ -310,7 +310,7 @@ int main()
     SetTargetFPS(TARGET_FPS);
 
     halfspace.isStatic = true;
-    halfspace.position = { 600, 700 };
+    halfspace.position = { 0, 700 };
     world.add(&halfspace);
 
     while (!WindowShouldClose())
