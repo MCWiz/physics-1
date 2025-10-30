@@ -28,6 +28,7 @@ enum PhysicsShape
 float speed = 100;
 float angle = 0;
 
+// Physics Object Base
 class PhysicsObj
 {
 public:
@@ -46,6 +47,7 @@ public:
     virtual PhysicsShape shape() = 0;
 };
 
+// Physics Object Circle
 class PhysicsCircle : public PhysicsObj
 {
 public:
@@ -64,6 +66,7 @@ public:
     }
 };
 
+// Physics Object Halfspace
 class PhysicsHalfspace : public PhysicsObj
 {
 private:
@@ -104,16 +107,13 @@ public:
     }
 };
 
-//class PhysicsBox : public PhysicsObj
-//{
-//    Vector2 size = { 5, 5 };
-//};
-
+// Circle Checks
 bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB)
 {
     Vector2 displaceAToB = circleB->position - circleA->position;
     float distance = Vector2Length(displaceAToB);
     float sumOfRadii = circleA->radius + circleB->radius;
+
 
     if (sumOfRadii > distance)
     {
@@ -125,11 +125,42 @@ bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB)
     }
 }
 
+bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB)
+{
+    Vector2 displaceAToB = circleB->position - circleA->position;
+    float distance = Vector2Length(displaceAToB);
+    float sumOfRadii = circleA->radius + circleB->radius;
+    float overlap = sumOfRadii - distance;
+    Vector2 normalAToB;
+
+    if (abs(distance) == 0)
+    {
+        normalAToB = { 0, 1 };
+    }
+    else
+    {
+        normalAToB = displaceAToB / distance;
+    }
+
+    Vector2 mtv = normalAToB * overlap;
+
+
+    if (sumOfRadii > distance)
+    {
+        circleA->position -= mtv * 0.5f;
+        circleB->position += mtv * 0.5f;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+// Halfspace Checks
 bool CircleHalfspaceOverlap(PhysicsCircle* circle, PhysicsHalfspace* halfspace)
 {
     Vector2 displacementToCircle = circle->position - halfspace->position;
-
-    //return ((Dot product(displacement, normal) < radius)
 
     float dot = Vector2DotProduct(displacementToCircle, halfspace->GetNormal());
     Vector2 projectDisplacementOntoNorm = halfspace->GetNormal() * dot;
@@ -141,6 +172,33 @@ bool CircleHalfspaceOverlap(PhysicsCircle* circle, PhysicsHalfspace* halfspace)
     return dot < circle->radius ? true : false;
 }
 
+bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* halfspace)
+{
+    Vector2 displacementToCircle = circle->position - halfspace->position;
+
+    float dot = Vector2DotProduct(displacementToCircle, halfspace->GetNormal());
+    Vector2 projectDisplacementOntoNorm = halfspace->GetNormal() * dot;
+    float overlap = circle->radius - dot;
+
+    DrawLineEx(circle->position, circle->position - projectDisplacementOntoNorm, 1, GRAY);
+    Vector2 midpoint = circle->position - projectDisplacementOntoNorm * 0.5f;
+    DrawText(TextFormat("D: %6.0f", dot), midpoint.x, midpoint.y, 30, GRAY);
+
+    if (overlap > 0)
+    {
+        Vector2 mtv = halfspace->GetNormal() * overlap;
+        circle->position += mtv;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+
+    //return dot < circle->radius ? true : false;
+}
+
+// Physics World
 class PhysicsWorld
 {
 public:
@@ -187,7 +245,7 @@ public:
 
                 if (shapeOfA == CIRCLE && shapeOfB == CIRCLE)
                 {
-                    if (CircleCircleOverlap((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB))
+                    if (CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB))
                     {
                         objectPointerA->color = RED;
                         objectPointerB->color = RED;
@@ -196,7 +254,7 @@ public:
                 else if (shapeOfA == CIRCLE && shapeOfB == HALF_SPACE)
                 {
                     
-                    if (CircleHalfspaceOverlap((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB))
+                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB))
                     {
                         objectPointerA->color = RED;
                         objectPointerB->color = RED;
@@ -204,7 +262,7 @@ public:
                 }
                 else if (shapeOfA == HALF_SPACE && shapeOfB == CIRCLE)
                 {
-                    if (CircleHalfspaceOverlap((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA))
+                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA))
                     {
                         objectPointerA->color = RED;
                         objectPointerB->color = RED;
@@ -219,6 +277,7 @@ PhysicsWorld world;
 
 PhysicsHalfspace halfspace;
 
+// Cleanup function
 void cleanup()
 {
     for (int i = 0; i < world.objects.size(); i++)
@@ -238,6 +297,7 @@ void cleanup()
     }
 }
 
+// Update function
 void update()
 {
     dt = 1.0f / TARGET_FPS;
@@ -261,6 +321,7 @@ void update()
     y = y + (cos(time * frequency)) * frequency * amplitude * dt;*/
 }
 
+// Draw function
 void draw()
 {
     BeginDrawing();
@@ -304,6 +365,7 @@ void draw()
     EndDrawing();
 }
 
+// Main
 int main()
 {
     InitWindow(InitialWidth, InitialHeight, "GAME2005 Logan Medina 101538952");
