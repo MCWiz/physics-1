@@ -204,7 +204,7 @@ class PhysicsWorld
 public:
     std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 0, 700 };
+    Vector2 startPos = { 0, 600 };
 
     void add(PhysicsObj* newObj)
     {
@@ -338,11 +338,10 @@ void draw()
     GuiSliderBar(Rectangle{ 660, 45, 450, 20 }, "Start", TextFormat("X: %.0f", world.startPos.x), &world.startPos.x, 0, 1200);
     GuiSliderBar(Rectangle{ 660, 75, 450, 20 }, "Start", TextFormat("Y: %.0f", world.startPos.y), &world.startPos.y, 0, 800);
 
-    GuiSliderBar(Rectangle{ 75, 135, 450, 20 }, "Halfspace X", TextFormat("X: %.0f", halfspace.position.x), &halfspace.position.x, 0, 1200);
     GuiSliderBar(Rectangle{ 660, 135, 450, 20 }, "Halfspace Y", TextFormat("Y: %.0f", halfspace.position.y), &halfspace.position.y, 0, 800);
 
     float halfspaceRotation = halfspace.GetRotationInDeg();
-    GuiSliderBar(Rectangle{ 75, 165, 1000, 20 }, "Rotation", TextFormat(": %.0f", halfspace.GetRotationInDeg()), &halfspaceRotation, -360, 360);
+    GuiSliderBar(Rectangle{ 75, 135, 450, 20 }, "Rotation", TextFormat(": %.0f", halfspace.GetRotationInDeg()), &halfspaceRotation, -360, 360);
     halfspace.SetRotationInDeg(halfspaceRotation);
 
     DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);
@@ -362,6 +361,24 @@ void draw()
     /*DrawCircle(x, y, 70, RED);
     DrawCircle(500 + cos(time * frequency) * amplitude, 500 + sin(time * frequency) * amplitude, 70, GREEN);*/
 
+    Vector2 location = { 300, 600 };
+    DrawCircleLines(location.x, location.y, 100, WHITE);
+    float mass = 8;
+    
+    // Force Gravity
+    Vector2 FGravity = world.accelGravity * mass;
+    DrawLine(location.x, location.y, location.x + FGravity.x, location.y + FGravity.y, PURPLE);
+
+    // Force Normal
+    Vector2 FgPerp = halfspace.GetNormal() * Vector2DotProduct(FGravity, halfspace.GetNormal());
+    Vector2 Fnormal = FgPerp * -1;
+    DrawLine(location.x, location.y, location.x + Fnormal.x, location.y + Fnormal.y, GREEN);
+
+    // Force Friction
+    Vector2 FgPara = FGravity - FgPerp;
+    Vector2 Ffriction = FgPara * -1;
+    DrawLine(location.x, location.y, location.x + Ffriction.x, location.y + Ffriction.y, ORANGE);
+
     EndDrawing();
 }
 
@@ -372,7 +389,7 @@ int main()
     SetTargetFPS(TARGET_FPS);
 
     halfspace.isStatic = true;
-    halfspace.position = { 0, 700 };
+    halfspace.position = { 0, 600 };
     world.add(&halfspace);
 
     while (!WindowShouldClose())
