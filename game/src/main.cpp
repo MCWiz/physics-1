@@ -389,7 +389,7 @@ int main()
     SetTargetFPS(TARGET_FPS);
 
     halfspace.isStatic = true;
-    halfspace.position = { 0, 600 };
+    halfspace.position = { 300, 600 };
     world.add(&halfspace);
 
     while (!WindowShouldClose())
