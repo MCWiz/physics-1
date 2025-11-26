@@ -35,9 +35,11 @@ public:
     bool isStatic = false;
     Vector2 position = { 0, 0 };
     Vector2 velocity = { 0, 0 };
+    Vector2 netForce = { 0, 0 };
     float mass = 1;
+    float grippiness = 0.5f;
+
     Color color = GREEN;
-    bool isColliding = false;
 
     virtual void draw()
     {
@@ -51,11 +53,11 @@ public:
 class PhysicsCircle : public PhysicsObj
 {
 public:
-    float radius;
+    float radius = 10;
 
     void draw() override
     {
-        DrawLineEx(position, position + velocity, 3, RED);
+        //DrawLineEx(position, position + velocity, 3, RED);
 
         DrawCircle(position.x, position.y, radius, color);
     }
@@ -106,6 +108,129 @@ public:
         return HALF_SPACE;
     }
 };
+
+// Physics World
+
+bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB);
+bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB);
+bool CircleHalfspaceOverlap(PhysicsCircle* circle, PhysicsHalfspace* halfspace);
+bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* halfspace);
+
+class PhysicsWorld
+{
+public:
+    std::vector<PhysicsObj*> objects;
+    Vector2 accelGravity = { 0, 9 };
+    Vector2 startPos = { 0, 600 };
+
+    void add(PhysicsObj* newObj)
+    {
+        objects.push_back(newObj);
+    }
+
+    void resetNetForces()
+    {
+        for (int i = 0; i < objects.size(); i++)
+        {
+            PhysicsObj* object = objects[i];
+
+            object->netForce = { 0, 0 };
+        }
+    }
+
+    void addGravityForces()
+    {
+        for (int i = 0; i < objects.size(); i++)
+        {
+            PhysicsObj* object = objects[i];
+
+            if (object->isStatic) continue;
+
+            Vector2 FGravity = accelGravity * object->mass;
+            object->netForce += FGravity;
+
+            DrawLineEx(object->position, object->position + FGravity, 1, PURPLE);
+        }
+    }
+
+    void applyKinematics()
+    {
+        for (int i = 0; i < objects.size(); i++)
+        {
+            PhysicsObj* object = objects[i];
+
+            if (object->isStatic) continue;
+
+            object->position = object->position + object->velocity * dt;
+
+            Vector2 acceleration = object->netForce/object->mass;
+
+            object->velocity = object->velocity + acceleration * dt;
+
+            DrawLineEx(object->position, object->position + object->velocity, 2, RED);
+        }
+    }
+
+    void update()
+    {
+        /*for (int i = 0; i < objects.size(); i++)
+        {
+            objects[i]->color = GREEN;
+        }*/
+
+        resetNetForces();
+
+        addGravityForces();
+
+        collisionCheck();
+
+        applyKinematics();
+    }
+
+    void collisionCheck()
+    {
+        for (int i = 0; i < objects.size(); i++)
+        {
+            for (int j = i + 1; j < objects.size(); j++)
+            {
+                PhysicsObj* objectPointerA = objects[i];
+                PhysicsObj* objectPointerB = objects[j];
+
+                PhysicsShape shapeOfA = objectPointerA->shape();
+                PhysicsShape shapeOfB = objectPointerB->shape();
+
+                if (shapeOfA == CIRCLE && shapeOfB == CIRCLE)
+                {
+                    if (CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB))
+                    {
+                        /*objectPointerA->color = RED;
+                        objectPointerB->color = RED;*/
+                    }
+                }
+                else if (shapeOfA == CIRCLE && shapeOfB == HALF_SPACE)
+                {
+                    
+                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB))
+                    {
+                        /*objectPointerA->color = RED;
+                        objectPointerB->color = RED;*/
+                    }
+                }
+                else if (shapeOfA == HALF_SPACE && shapeOfB == CIRCLE)
+                {
+                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA))
+                    {
+                        /*objectPointerA->color = RED;
+                        objectPointerB->color = RED;*/
+                    }
+                }
+            }
+        }
+    }
+};
+
+PhysicsWorld world;
+PhysicsHalfspace halfspace;
 
 // Circle Checks
 bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB)
@@ -188,94 +313,41 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
     {
         Vector2 mtv = halfspace->GetNormal() * overlap;
         circle->position += mtv;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Get Grav Forces
+        Vector2 FGravity = world.accelGravity * circle->mass;
+
+        // Apply Normal
+        Vector2 FgPerp = halfspace->GetNormal() * Vector2DotProduct(FGravity, halfspace->GetNormal());
+        Vector2 FNormal = FgPerp * -1;
+        circle->netForce += FNormal;
+        DrawLineEx(circle->position, circle->position + FNormal, 1, GREEN);
+
+        // Friction
+        float u = circle->grippiness * halfspace->grippiness;
+        Vector2 FgPara = FGravity - FgPerp;
+        float frictionMagnitude = u * Vector2Length(FNormal); // Max magnitude of force of friction
+
+        if (frictionMagnitude > Vector2Length(FgPara))
+        {
+            frictionMagnitude = Vector2Length(FgPara);
+        }
+
+        Vector2 frictionDirection = Vector2Normalize(FgPara) * -1; // Direction of force of friction
+        Vector2 Ffriction = frictionDirection * frictionMagnitude;
+
+        circle->netForce += Ffriction;
+        DrawLineEx(circle->position, circle->position + Ffriction, 2, ORANGE);
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
         return true;
     }
     else
     {
         return false;
     }
-
-    //return dot < circle->radius ? true : false;
 }
-
-// Physics World
-class PhysicsWorld
-{
-public:
-    std::vector<PhysicsObj*> objects;
-    Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 0, 600 };
-
-    void add(PhysicsObj* newObj)
-    {
-        objects.push_back(newObj);
-    }
-
-    void update()
-    {
-        for (int i = 0; i < objects.size(); i++)
-        {
-            objects[i]->color = GREEN;
-        }
-
-        for (int i = 0; i < objects.size(); i++)
-        {
-            PhysicsObj* object = objects[i];
-
-            if (object->isStatic) continue;
-
-            object->position = object->position + object->velocity * dt;
-            object->velocity = object->velocity + accelGravity * dt;
-        }
-
-        collisionCheck();
-    }
-
-    void collisionCheck()
-    {
-        for (int i = 0; i < objects.size(); i++)
-        {
-            for (int j = i + 1; j < objects.size(); j++)
-            {
-                PhysicsObj* objectPointerA = objects[i];
-                PhysicsObj* objectPointerB = objects[j];
-
-                PhysicsShape shapeOfA = objectPointerA->shape();
-                PhysicsShape shapeOfB = objectPointerB->shape();
-
-                if (shapeOfA == CIRCLE && shapeOfB == CIRCLE)
-                {
-                    if (CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB))
-                    {
-                        objectPointerA->color = RED;
-                        objectPointerB->color = RED;
-                    }
-                }
-                else if (shapeOfA == CIRCLE && shapeOfB == HALF_SPACE)
-                {
-                    
-                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB))
-                    {
-                        objectPointerA->color = RED;
-                        objectPointerB->color = RED;
-                    }
-                }
-                else if (shapeOfA == HALF_SPACE && shapeOfB == CIRCLE)
-                {
-                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA))
-                    {
-                        objectPointerA->color = RED;
-                        objectPointerB->color = RED;
-                    }
-                }
-            }
-        }
-    }
-};
-
-PhysicsWorld world;
-
-PhysicsHalfspace halfspace;
 
 // Cleanup function
 void cleanup()
@@ -306,16 +378,16 @@ void update()
     cleanup();
     world.update();
 
-    if (IsKeyPressed(KEY_SPACE))
-    {
-        PhysicsCircle* bird = new PhysicsCircle();
-        bird->position = world.startPos;
-        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
-        bird->radius = (rand() % 16) + 10;
-        // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
+    //if (IsKeyPressed(KEY_SPACE))
+    //{
+    //    PhysicsCircle* bird = new PhysicsCircle();
+    //    bird->position = world.startPos;
+    //    /*bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };*/
+    //    bird->radius = (rand() % 16) + 10;
+    //    // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
 
-        world.add(bird);
-    }
+    //    world.add(bird);
+    //}
 
     /*x = x + (-sin(time * frequency)) * frequency * amplitude * dt;
     y = y + (cos(time * frequency)) * frequency * amplitude * dt;*/
@@ -347,9 +419,8 @@ void draw()
     DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);
 
     /*Vector2 startPos = { startPosX, startPosY };*/
-    Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };
-
-    DrawLineEx(world.startPos, world.startPos + velocity, 3, RED);
+    /*Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };*/
+    /*DrawLineEx(world.startPos, world.startPos + velocity, 3, RED);*/
 
     for (int i = 0; i < world.objects.size(); i++)
     {
@@ -361,23 +432,25 @@ void draw()
     /*DrawCircle(x, y, 70, RED);
     DrawCircle(500 + cos(time * frequency) * amplitude, 500 + sin(time * frequency) * amplitude, 70, GREEN);*/
 
-    Vector2 location = { 300, 600 };
-    DrawCircleLines(location.x, location.y, 100, WHITE);
-    float mass = 8;
-    
-    // Force Gravity
-    Vector2 FGravity = world.accelGravity * mass;
-    DrawLine(location.x, location.y, location.x + FGravity.x, location.y + FGravity.y, PURPLE);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Vector2 location = { 300, 600 };
+    //DrawCircleLines(location.x, location.y, 100, WHITE);
+    //float mass = 8;
+    //
+    //// Force Gravity
+    //Vector2 FGravity = world.accelGravity * mass;
+    //DrawLine(location.x, location.y, location.x + FGravity.x, location.y + FGravity.y, PURPLE);
 
-    // Force Normal
-    Vector2 FgPerp = halfspace.GetNormal() * Vector2DotProduct(FGravity, halfspace.GetNormal());
-    Vector2 Fnormal = FgPerp * -1;
-    DrawLine(location.x, location.y, location.x + Fnormal.x, location.y + Fnormal.y, GREEN);
+    //// Force Normal
+    //Vector2 FgPerp = halfspace.GetNormal() * Vector2DotProduct(FGravity, halfspace.GetNormal());
+    //Vector2 Fnormal = FgPerp * -1;
+    //DrawLine(location.x, location.y, location.x + Fnormal.x, location.y + Fnormal.y, GREEN);
 
-    // Force Friction
-    Vector2 FgPara = FGravity - FgPerp;
-    Vector2 Ffriction = FgPara * -1;
-    DrawLine(location.x, location.y, location.x + Ffriction.x, location.y + Ffriction.y, ORANGE);
+    //// Force Friction
+    //Vector2 FgPara = FGravity - FgPerp;
+    //Vector2 Ffriction = FgPara * -1;
+    //DrawLine(location.x, location.y, location.x + Ffriction.x, location.y + Ffriction.y, ORANGE);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     EndDrawing();
 }
@@ -390,8 +463,39 @@ int main()
 
     halfspace.isStatic = true;
     halfspace.position = { 300, 600 };
+    halfspace.grippiness = 1;
     world.add(&halfspace);
 
+    PhysicsCircle* circle1 = new PhysicsCircle();
+    PhysicsCircle* circle2 = new PhysicsCircle();
+    PhysicsCircle* circle3 = new PhysicsCircle();
+    PhysicsCircle* circle4 = new PhysicsCircle();
+
+    circle1->position = { 75, 400 };
+    circle2->position = { 25, 400 };
+    circle3->position = { 100, 400 };
+    circle4->position = { 50, 400 };
+
+    circle1->mass = 2;
+    circle2->mass = 2;
+    circle3->mass = 8;
+    circle4->mass = 8;
+
+    circle1->grippiness = 0.1;
+    circle2->grippiness = 0.8;
+    circle3->grippiness = 0.1;
+    circle4->grippiness = 0.8;
+
+    circle1->color = RED;
+    circle2->color = GREEN;
+    circle3->color = BLUE;
+    circle4->color = YELLOW;
+
+    world.add(circle1);
+    world.add(circle2);
+    world.add(circle3);
+    world.add(circle4);
+   
     while (!WindowShouldClose())
     {
         update();
