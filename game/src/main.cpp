@@ -121,7 +121,7 @@ class PhysicsWorld
 public:
     std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 0, 600 };
+    Vector2 startPos = { 50, 600 };
 
     void add(PhysicsObj* newObj)
     {
@@ -378,16 +378,15 @@ void update()
     cleanup();
     world.update();
 
-    //if (IsKeyPressed(KEY_SPACE))
-    //{
-    //    PhysicsCircle* bird = new PhysicsCircle();
-    //    bird->position = world.startPos;
-    //    /*bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };*/
-    //    bird->radius = (rand() % 16) + 10;
-    //    // Color randColor = { rand() % 256, rand() % 256, rand() % 256, 255 };
+    if (IsKeyPressed(KEY_SPACE))
+    {
+        PhysicsCircle* bird = new PhysicsCircle();
+        bird->position = world.startPos;
+        /*bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };*/
+        bird->radius = (rand() % 16) + 10;
 
-    //    world.add(bird);
-    //}
+        world.add(bird);
+    }
 
     /*x = x + (-sin(time * frequency)) * frequency * amplitude * dt;
     y = y + (cos(time * frequency)) * frequency * amplitude * dt;*/
@@ -466,7 +465,7 @@ int main()
     halfspace.grippiness = 1;
     world.add(&halfspace);
 
-    PhysicsCircle* circle1 = new PhysicsCircle();
+    /*PhysicsCircle* circle1 = new PhysicsCircle();
     PhysicsCircle* circle2 = new PhysicsCircle();
     PhysicsCircle* circle3 = new PhysicsCircle();
     PhysicsCircle* circle4 = new PhysicsCircle();
@@ -494,7 +493,7 @@ int main()
     world.add(circle1);
     world.add(circle2);
     world.add(circle3);
-    world.add(circle4);
+    world.add(circle4);*/
    
     while (!WindowShouldClose())
     {
