@@ -42,6 +42,7 @@ AABB to Circle collision
 const unsigned int TARGET_FPS = 50;
 float dt = 1.0f / TARGET_FPS;
 float time = 0;
+float restitution = 0.9f;
 
 enum PhysicsShape
 {
@@ -66,7 +67,8 @@ public:
     Vector2 velocity = { 0, 0 };
     Vector2 netForce = { 0, 0 };
     float mass = 1;
-    float grippiness = 0.5f;
+    float grippiness = 0.5f; // for determining coefficient of friction
+    float bounciness = 0.9f; // for determining coefficient of restitution
 
     Color color = GREEN;
 
@@ -178,7 +180,7 @@ public:
             Vector2 FGravity = accelGravity * object->mass;
             object->netForce += FGravity;
 
-            DrawLineEx(object->position, object->position + FGravity, 1, PURPLE);
+            DrawLineEx(object->position, object->position + FGravity, 3, PURPLE);
         }
     }
 
@@ -196,7 +198,7 @@ public:
 
             object->velocity = object->velocity + acceleration * dt;
 
-            DrawLineEx(object->position, object->position + object->velocity, 2, RED);
+            DrawLineEx(object->position, object->position + object->velocity, 3, RED);
         }
     }
 
@@ -303,6 +305,24 @@ bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB)
     {
         circleA->position -= mtv * 0.5f;
         circleB->position += mtv * 0.5f;
+
+        Vector2 velocityBRelativeToA = circleB->velocity - circleA->velocity;
+        float closingVelocity1D = Vector2DotProduct(velocityBRelativeToA, normalAToB);
+
+        if (closingVelocity1D >= 0) return true;
+
+        float restitution = circleA->bounciness * circleB->bounciness;
+
+        float totalMass = circleA->mass + circleB->mass;
+
+        float impulseMagnitude = ((1.0 + restitution) * closingVelocity1D * circleA->mass * circleB->mass) / totalMass;
+
+        Vector2 impulseB = normalAToB * -impulseMagnitude;
+        Vector2 impulseA = normalAToB * impulseMagnitude;
+
+        circleA->velocity += impulseA / circleA->mass;
+        circleB->velocity += impulseB / circleB->mass;
+
         return true;
     }
     else
@@ -351,7 +371,7 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
         Vector2 FgPerp = halfspace->GetNormal() * Vector2DotProduct(FGravity, halfspace->GetNormal());
         Vector2 FNormal = FgPerp * -1;
         circle->netForce += FNormal;
-        DrawLineEx(circle->position, circle->position + FNormal, 1, GREEN);
+        DrawLineEx(circle->position, circle->position + FNormal, 3, GREEN);
 
         // Friction
         float u = circle->grippiness * halfspace->grippiness;
@@ -367,8 +387,18 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
         Vector2 Ffriction = frictionDirection * frictionMagnitude;
 
         circle->netForce += Ffriction;
-        DrawLineEx(circle->position, circle->position + Ffriction, 2, ORANGE);
+        DrawLineEx(circle->position, circle->position + Ffriction, 3, ORANGE);
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Bouncing
+
+        float closingVelocity1D = Vector2DotProduct(circle->velocity, halfspace->GetNormal());
+
+        if (closingVelocity1D >= 0) return true;
+
+        float restitution = circle->bounciness * halfspace->bounciness;
+
+        circle->velocity += halfspace->GetNormal() * closingVelocity1D * -(1.0f + restitution);
 
         return true;
     }
@@ -411,8 +441,9 @@ void update()
     {
         PhysicsCircle* bird = new PhysicsCircle();
         bird->position = world.startPos;
-        /*bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };*/
+        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
         bird->radius = (rand() % 16) + 10;
+        bird->bounciness = restitution;
 
         world.add(bird);
     }
@@ -444,11 +475,13 @@ void draw()
     GuiSliderBar(Rectangle{ 75, 135, 450, 20 }, "Rotation", TextFormat(": %.0f", halfspace.GetRotationInDeg()), &halfspaceRotation, -360, 360);
     halfspace.SetRotationInDeg(halfspaceRotation);
 
+    GuiSliderBar(Rectangle{ 75, 165, 450, 20 }, "Restitution", TextFormat("%.0f", restitution), &restitution, 0, 1);
+
     DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);
 
-    /*Vector2 startPos = { startPosX, startPosY };*/
-    /*Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };*/
-    /*DrawLineEx(world.startPos, world.startPos + velocity, 3, RED);*/
+    Vector2 startPos = { world.startPos.x, world.startPos.y };
+    Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };
+    DrawLineEx(world.startPos, world.startPos + velocity, 3, RED);
 
     for (int i = 0; i < world.objects.size(); i++)
     {
@@ -494,35 +527,31 @@ int main()
     halfspace.grippiness = 1;
     world.add(&halfspace);
 
-    /*PhysicsCircle* circle1 = new PhysicsCircle();
+    PhysicsCircle* circle1 = new PhysicsCircle();
     PhysicsCircle* circle2 = new PhysicsCircle();
     PhysicsCircle* circle3 = new PhysicsCircle();
     PhysicsCircle* circle4 = new PhysicsCircle();
+    PhysicsCircle* circle5 = new PhysicsCircle();
 
-    circle1->position = { 75, 400 };
-    circle2->position = { 25, 400 };
-    circle3->position = { 100, 400 };
-    circle4->position = { 50, 400 };
+    circle1->position = { 25, 300 };
+    circle2->position = { 25, 311 };
+    circle3->position = { 100, 300 };
+    circle4->position = { 200, 585 };
+    circle5->position = { 300, 585 };
 
-    circle1->mass = 2;
-    circle2->mass = 2;
-    circle3->mass = 8;
-    circle4->mass = 8;
-
-    circle1->grippiness = 0.1;
-    circle2->grippiness = 0.8;
-    circle3->grippiness = 0.1;
-    circle4->grippiness = 0.8;
+    circle4->velocity = { 100, 0 };
 
     circle1->color = RED;
     circle2->color = GREEN;
     circle3->color = BLUE;
     circle4->color = YELLOW;
+    circle5->color = PURPLE;
 
     world.add(circle1);
     world.add(circle2);
     world.add(circle3);
-    world.add(circle4);*/
+    world.add(circle4);
+    world.add(circle5);
    
     while (!WindowShouldClose())
     {
