@@ -3,6 +3,35 @@ This project uses the Raylib framework to provide us functionality for math, gra
 See documentation here: https://www.raylib.com/, and examples here: https://www.raylib.com/examples.html
 */
 
+
+/*
+Notes for Lab Exercise 8
+
+AABB to AABB collision
+1. to get the min and max of the AABB calculate with
+objAMax = objA.pos.x + objA.size.x/2 and objAMin = objA.pos.x - objA.size.x/2
+
+2. if the min of A's AABB is between the min and max of B's AABB or the max of A's AABB is betweem the min and max
+of B's AABB they overlap on this axis, otherwise they don't overlap so we can exit collision detection early.
+Overlap = (A.size/2 + B.size/2) - distance.
+        a. Note that if you do A.max - B.min, if its negative they don't overlap, and if its greater than both
+        objects widths added together they don't overlap. Any thing between is the overlap
+
+3. If all axes did have an overlap, pick the shortest one. Use that as a your Collision Normal, and use that overlap
+to multiply with with Normal which creates MTV e.g. if (abs(overlapX) < abs(overlapY)) 
+then MTV = {sign(displacement.x), 0};
+
+4. Move them apart by MTV. We can divide MTV in half and give each half of MTV to move by, as we did with
+circle-circle, or since we now have mass, make it inversely proportional to mass.
+
+sign(X) is equal to +1 or -1 based on if X is positive or negative.
+
+----------------------------------------------------------------------------------------------------------------------
+
+AABB to Circle collision
+1.  if the circle center is INSIDE the AABB, they overlap
+*/
+
 #include "raylib.h"
 #include "raymath.h"
 #define RAYGUI_IMPLEMENTATION
