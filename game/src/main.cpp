@@ -44,6 +44,24 @@ float dt = 1.0f / TARGET_FPS;
 float time = 0;
 float restitution = 0.9f;
 
+float mass1 = 1.0f;
+float mass2 = 1.0f;
+float mass3 = 1.0f;
+float mass4 = 1.0f;
+float mass5 = 1.0f;
+
+float xCircle1 = 0.0f;
+float xCircle2 = 0.0f;
+float xCircle3 = 0.0f;
+float xCircle4 = 100.0f;
+float xCircle5 = 0.0f;
+
+float yCircle1 = 0.0f;
+float yCircle2 = 0.0f;
+float yCircle3 = 0.0f;
+float yCircle4 = 0.0f;
+float yCircle5 = 0.0f;
+
 enum PhysicsShape
 {
     CIRCLE,
@@ -459,25 +477,85 @@ void draw()
     ClearBackground(BLACK);
     DrawText("Logan Christopher Medina 101538952", 10, float(GetScreenHeight() - 30), 20, LIGHTGRAY);
 
-    GuiSliderBar(Rectangle{ 75, 15, 1000, 20 }, "Time", TextFormat("%.2f", time), &time, 0, 240);
+    /*GuiSliderBar(Rectangle{ 75, 15, 1000, 20 }, "Time", TextFormat("%.2f", time), &time, 0, 240);*/
 
-    GuiSliderBar(Rectangle{ 75, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);
-    GuiSliderBar(Rectangle{ 75, 75, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle * -1), &angle, -180, 180);
+    /*GuiSliderBar(Rectangle{ 75, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);*/
+    GuiSliderBar(Rectangle{ 55, 15, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle * -1), &angle, -180, 180);
 
-    GuiSliderBar(Rectangle{ 75, 105, 1000, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
+    GuiSliderBar(Rectangle{ 680, 15, 450, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
 
-    GuiSliderBar(Rectangle{ 660, 45, 450, 20 }, "Start", TextFormat("X: %.0f", world.startPos.x), &world.startPos.x, 0, 1200);
-    GuiSliderBar(Rectangle{ 660, 75, 450, 20 }, "Start", TextFormat("Y: %.0f", world.startPos.y), &world.startPos.y, 0, 800);
+    GuiSliderBar(Rectangle{ 55, 45, 450, 20 }, "Start", TextFormat("X: %.0f", world.startPos.x), &world.startPos.x, 0, 1200);
+    GuiSliderBar(Rectangle{ 680, 45, 450, 20 }, "Start", TextFormat("Y: %.0f", world.startPos.y), &world.startPos.y, 0, 800);
 
-    GuiSliderBar(Rectangle{ 660, 135, 450, 20 }, "Halfspace Y", TextFormat("Y: %.0f", halfspace.position.y), &halfspace.position.y, 0, 800);
+    if (GuiButton(Rectangle{ 975, 105, 100, 40 }, "Reset"))
+    {
+        for (int i = 0; i < world.objects.size(); i++)
+        {
+            PhysicsObj* object = world.objects[i];
 
-    float halfspaceRotation = halfspace.GetRotationInDeg();
+            if (object->shape() == CIRCLE)
+            {
+                auto iterator = (world.objects.begin() + i);
+                PhysicsObj* pointerToPhysicsObj = *iterator;
+                delete pointerToPhysicsObj;
+
+                world.objects.erase(iterator);
+                i--;
+            }
+        }
+
+        PhysicsCircle* circle1 = new PhysicsCircle();
+        PhysicsCircle* circle2 = new PhysicsCircle();
+        PhysicsCircle* circle3 = new PhysicsCircle();
+        PhysicsCircle* circle4 = new PhysicsCircle();
+        PhysicsCircle* circle5 = new PhysicsCircle();
+
+        circle1->position = { 25, 300 };
+        circle2->position = { 25, 311 };
+        circle3->position = { 100, 300 };
+        circle4->position = { 200, 585 };
+        circle5->position = { 300, 585 };
+
+        circle1->velocity = { xCircle1, yCircle1 };
+        circle2->velocity = { xCircle2, yCircle2 };
+        circle3->velocity = { xCircle3, yCircle3 };
+        circle4->velocity = { xCircle4, yCircle4 };
+        circle5->velocity = { xCircle5, yCircle5 };
+
+        circle1->mass = mass1;
+        circle2->mass = mass2;
+        circle3->mass = mass3;
+        circle4->mass = mass4;
+        circle5->mass = mass5;
+
+        circle1->color = RED;
+        circle2->color = GREEN;
+        circle3->color = BLUE;
+        circle4->color = YELLOW;
+        circle5->color = PURPLE;
+
+        circle1->bounciness = restitution;
+        circle2->bounciness = restitution;
+        circle3->bounciness = restitution;
+        circle4->bounciness = restitution;
+        circle5->bounciness = restitution;
+
+        world.add(circle1);
+        world.add(circle2);
+        world.add(circle3);
+        world.add(circle4);
+        world.add(circle5);
+    }
+
+    /*GuiSliderBar(Rectangle{ 660, 135, 450, 20 }, "Halfspace Y", TextFormat("Y: %.0f", halfspace.position.y), &halfspace.position.y, 0, 800);*/
+
+    /*float halfspaceRotation = halfspace.GetRotationInDeg();
     GuiSliderBar(Rectangle{ 75, 135, 450, 20 }, "Rotation", TextFormat(": %.0f", halfspace.GetRotationInDeg()), &halfspaceRotation, -360, 360);
-    halfspace.SetRotationInDeg(halfspaceRotation);
+    halfspace.SetRotationInDeg(halfspaceRotation);*/
 
-    GuiSliderBar(Rectangle{ 75, 165, 450, 20 }, "Restitution", TextFormat("%.0f", restitution), &restitution, 0, 1);
+    GuiSliderBar(Rectangle{ 75, 75, 1000, 20 }, "Restitution", TextFormat("%.0f", restitution), &restitution, 0, 1);
 
-    DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);
+    /*DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);*/
 
     Vector2 startPos = { world.startPos.x, world.startPos.y };
     Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };
@@ -539,13 +617,29 @@ int main()
     circle4->position = { 200, 585 };
     circle5->position = { 300, 585 };
 
-    circle4->velocity = { 100, 0 };
+    circle1->velocity = { xCircle1, yCircle1 };
+    circle2->velocity = { xCircle2, yCircle2 };
+    circle3->velocity = { xCircle3, yCircle3 };
+    circle4->velocity = { xCircle4, yCircle4 };
+    circle5->velocity = { xCircle5, yCircle5 };
+
+    circle1->mass = mass1;
+    circle2->mass = mass2;
+    circle3->mass = mass3;
+    circle4->mass = mass4;
+    circle5->mass = mass5;
 
     circle1->color = RED;
     circle2->color = GREEN;
     circle3->color = BLUE;
     circle4->color = YELLOW;
     circle5->color = PURPLE;
+
+    circle1->bounciness = restitution;
+    circle2->bounciness = restitution;
+    circle3->bounciness = restitution;
+    circle4->bounciness = restitution;
+    circle5->bounciness = restitution;
 
     world.add(circle1);
     world.add(circle2);
@@ -557,6 +651,24 @@ int main()
     {
         update();
         draw();
+
+        GuiSliderBar(Rectangle{ 75, 105, 100, 20 }, "Circle 1", TextFormat("Mass: %.0f", mass1), &mass1, 1, 10);
+        GuiSliderBar(Rectangle{ 75, 135, 100, 20 }, "Circle 2", TextFormat("Mass: %.0f", mass2), &mass2, 1, 10);
+        GuiSliderBar(Rectangle{ 75, 165, 100, 20 }, "Circle 3", TextFormat("Mass: %.0f", mass3), &mass3, 1, 10);
+        GuiSliderBar(Rectangle{ 75, 195, 100, 20 }, "Circle 4", TextFormat("Mass: %.0f", mass4), &mass4, 1, 10);
+        GuiSliderBar(Rectangle{ 75, 225, 100, 20 }, "Circle 5", TextFormat("Mass: %.0f", mass5), &mass5, 1, 10);
+
+        GuiSliderBar(Rectangle{ 300, 105, 100, 20 }, "Circle 1", TextFormat("Initial X: %.0f", xCircle1), &xCircle1, 0, 100);
+        GuiSliderBar(Rectangle{ 300, 135, 100, 20 }, "Circle 2", TextFormat("Initial X: %.0f", xCircle2), &xCircle2, 0, 100);
+        GuiSliderBar(Rectangle{ 300, 165, 100, 20 }, "Circle 3", TextFormat("Initial X: %.0f", xCircle3), &xCircle3, 0, 100);
+        GuiSliderBar(Rectangle{ 300, 195, 100, 20 }, "Circle 4", TextFormat("Initial X: %.0f", xCircle4), &xCircle4, 0, 100);
+        GuiSliderBar(Rectangle{ 300, 225, 100, 20 }, "Circle 5", TextFormat("Initial X: %.0f", xCircle5), &xCircle5, 0, 100);
+
+        GuiSliderBar(Rectangle{ 525, 105, 100, 20 }, "Circle 1", TextFormat("Initial Y: %.0f", yCircle1), &yCircle1, 0, 100);
+        GuiSliderBar(Rectangle{ 525, 135, 100, 20 }, "Circle 2", TextFormat("Initial Y: %.0f", yCircle2), &yCircle2, 0, 100);
+        GuiSliderBar(Rectangle{ 525, 165, 100, 20 }, "Circle 3", TextFormat("Initial Y: %.0f", yCircle3), &yCircle3, 0, 100);
+        GuiSliderBar(Rectangle{ 525, 195, 100, 20 }, "Circle 4", TextFormat("Initial Y: %.0f", yCircle4), &yCircle4, 0, 100);
+        GuiSliderBar(Rectangle{ 525, 225, 100, 20 }, "Circle 5", TextFormat("Initial Y: %.0f", yCircle5), &yCircle5, 0, 100);
     }
 
     CloseWindow();
