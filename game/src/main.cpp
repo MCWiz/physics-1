@@ -3,35 +3,6 @@ This project uses the Raylib framework to provide us functionality for math, gra
 See documentation here: https://www.raylib.com/, and examples here: https://www.raylib.com/examples.html
 */
 
-
-/*
-Notes for Lab Exercise 8
-
-AABB to AABB collision
-1. to get the min and max of the AABB calculate with
-objAMax = objA.pos.x + objA.size.x/2 and objAMin = objA.pos.x - objA.size.x/2
-
-2. if the min of A's AABB is between the min and max of B's AABB or the max of A's AABB is betweem the min and max
-of B's AABB they overlap on this axis, otherwise they don't overlap so we can exit collision detection early.
-Overlap = (A.size/2 + B.size/2) - distance.
-        a. Note that if you do A.max - B.min, if its negative they don't overlap, and if its greater than both
-        objects widths added together they don't overlap. Any thing between is the overlap
-
-3. If all axes did have an overlap, pick the shortest one. Use that as a your Collision Normal, and use that overlap
-to multiply with with Normal which creates MTV e.g. if (abs(overlapX) < abs(overlapY)) 
-then MTV = {sign(displacement.x), 0};
-
-4. Move them apart by MTV. We can divide MTV in half and give each half of MTV to move by, as we did with
-circle-circle, or since we now have mass, make it inversely proportional to mass.
-
-sign(X) is equal to +1 or -1 based on if X is positive or negative.
-
-----------------------------------------------------------------------------------------------------------------------
-
-AABB to Circle collision
-1.  if the circle center is INSIDE the AABB, they overlap
-*/
-
 #include "raylib.h"
 #include "raymath.h"
 #define RAYGUI_IMPLEMENTATION
@@ -43,36 +14,21 @@ const unsigned int TARGET_FPS = 50;
 float dt = 1.0f / TARGET_FPS;
 float time = 0;
 float restitution = 0.9f;
+bool isBirdSpawned = false;
+float spawnRadius = 10.0f;
+float slingshotRadius = 100.0f;
 
-float mass1 = 1.0f;
-float mass2 = 1.0f;
-float mass3 = 1.0f;
-float mass4 = 1.0f;
-float mass5 = 1.0f;
-
-float xCircle1 = 0.0f;
-float xCircle2 = 0.0f;
-float xCircle3 = 0.0f;
-float xCircle4 = 100.0f;
-float xCircle5 = 0.0f;
-
-float yCircle1 = 0.0f;
-float yCircle2 = 0.0f;
-float yCircle3 = 0.0f;
-float yCircle4 = 0.0f;
-float yCircle5 = 0.0f;
-
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////     Physics Shapes     ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum PhysicsShape
 {
     CIRCLE,
     RECT,
     HALF_SPACE
 };
-
-//float x = 500;
-//float y = 500;
-//float frequency = 1;
-//float amplitude = 100;
 
 float speed = 100;
 float angle = 0;
@@ -107,8 +63,6 @@ public:
 
     void draw() override
     {
-        //DrawLineEx(position, position + velocity, 3, RED);
-
         DrawCircle(position.x, position.y, radius, color);
     }
 
@@ -176,7 +130,11 @@ public:
     }
 };
 
-// Physics World
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////     Physics World      ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB);
 bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB);
@@ -187,6 +145,7 @@ class PhysicsWorld
 {
 public:
     std::vector<PhysicsObj*> objects;
+    PhysicsCircle* activeBird;
     Vector2 accelGravity = { 0, 9 };
     Vector2 startPos = { 105, 510 };
 
@@ -203,6 +162,11 @@ public:
 
             object->netForce = { 0, 0 };
         }
+
+        if (activeBird != nullptr)
+        {
+            activeBird->netForce = { 0, 0 };
+        }
     }
 
     void addGravityForces()
@@ -217,6 +181,12 @@ public:
             object->netForce += FGravity;
 
             DrawLineEx(object->position, object->position + FGravity, 3, PURPLE);
+        }
+
+        if (activeBird != nullptr)
+        {
+            Vector2 FGravity = accelGravity * activeBird->mass;
+            activeBird->netForce += FGravity;
         }
     }
 
@@ -236,15 +206,19 @@ public:
 
             DrawLineEx(object->position, object->position + object->velocity, 3, RED);
         }
+
+        if (activeBird != nullptr)
+        {
+            activeBird->position = activeBird->position + activeBird->velocity * dt;
+
+            Vector2 birdAcceleration = activeBird->netForce / activeBird->mass;
+
+            activeBird->velocity = activeBird->velocity + birdAcceleration * dt;
+        }
     }
 
     void update()
     {
-        /*for (int i = 0; i < objects.size(); i++)
-        {
-            objects[i]->color = GREEN;
-        }*/
-
         resetNetForces();
 
         addGravityForces();
@@ -268,28 +242,34 @@ public:
 
                 if (shapeOfA == CIRCLE && shapeOfB == CIRCLE)
                 {
-                    if (CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB))
-                    {
-                        /*objectPointerA->color = RED;
-                        objectPointerB->color = RED;*/
-                    }
+                    CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB);
                 }
                 else if (shapeOfA == CIRCLE && shapeOfB == HALF_SPACE)
                 {
-                    
-                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB))
-                    {
-                        /*objectPointerA->color = RED;
-                        objectPointerB->color = RED;*/
-                    }
+                    CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB);
                 }
                 else if (shapeOfA == HALF_SPACE && shapeOfB == CIRCLE)
                 {
-                    if (CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA))
-                    {
-                        /*objectPointerA->color = RED;
-                        objectPointerB->color = RED;*/
-                    }
+                    CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA);
+                }
+            }
+        }
+
+        if (activeBird != nullptr)
+        {
+            for (int i = 0; i < objects.size(); i++)
+            {
+                PhysicsObj* objectPointer = objects[i];
+                PhysicsShape objectShape = objectPointer->shape();
+                PhysicsCircle* birdPointer = activeBird;
+
+                if (objectShape == CIRCLE)
+                {
+                    CircleCircleCollisionCheck(birdPointer, (PhysicsCircle*)objectPointer);
+                }
+                else if (objectShape == HALF_SPACE)
+                {
+                    CircleHalfspaceCollisionCheck(birdPointer, (PhysicsHalfspace*)objectPointer);
                 }
             }
         }
@@ -299,7 +279,11 @@ public:
 PhysicsWorld world;
 PhysicsHalfspace halfspace;
 
-// Circle Checks
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////    Collision Checks    ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CircleCircleOverlap(PhysicsCircle* circleA, PhysicsCircle* circleB)
 {
     Vector2 displaceAToB = circleB->position - circleA->position;
@@ -399,7 +383,6 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
         Vector2 mtv = halfspace->GetNormal() * overlap;
         circle->position += mtv;
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Get Grav Forces
         Vector2 FGravity = world.accelGravity * circle->mass;
 
@@ -424,7 +407,6 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
 
         circle->netForce += Ffriction;
         DrawLineEx(circle->position, circle->position + Ffriction, 3, ORANGE);
-        //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // Bouncing
 
@@ -444,7 +426,11 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
     }
 }
 
-// Cleanup function
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////        Cleanup         ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void cleanup()
 {
     for (int i = 0; i < world.objects.size(); i++)
@@ -462,11 +448,28 @@ void cleanup()
             i--;
         }
     }
+
+    if (world.activeBird != nullptr)
+    {
+        if (world.activeBird->position.y > GetScreenHeight() || world.activeBird->position.y < 0
+            || world.activeBird->position.x > GetScreenWidth() || world.activeBird->position.x < 0)
+        {
+            delete world.activeBird;
+            world.activeBird = nullptr;
+            isBirdSpawned = false;
+        }
+    }
+
 }
 
-// Update function
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////         Update         ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void update()
 {
+    Vector2 mouse = GetMousePosition();
     dt = 1.0f / TARGET_FPS;
     time += dt;
 
@@ -484,23 +487,60 @@ void update()
         world.add(bird);
     }
 
-    /*if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (!isBirdSpawned)
     {
+        if (CheckCollisionPointCircle(mouse, world.startPos, spawnRadius))
+        {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                PhysicsCircle* bird = new PhysicsCircle();
+                bird->position = world.startPos;
+                bird->bounciness = restitution;
+                bird->isStatic = true;
+                world.activeBird = bird;
+            }
+        }
+        if (CheckCollisionPointCircle(mouse, world.startPos, slingshotRadius))
+        {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            {
+                if (world.activeBird != nullptr)
+                {
+                    Vector2 displacement = mouse - world.startPos;
+                    float dist = Vector2Length(displacement);
+                    if (dist > slingshotRadius)
+                    {
+                        displacement = Vector2Normalize(displacement) * slingshotRadius;
+                    }
+                    world.activeBird->position = world.startPos + displacement;
 
+                    DrawLineEx(world.startPos, world.activeBird->position, 3, RED);
+                }
+            }
+        }
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            if (world.activeBird != nullptr)
+            {
+                Vector2 displacement = world.startPos - world.activeBird->position;
+                float birdMagnitude = Vector2Length(displacement);
+                Vector2 birdDirection = Vector2Normalize(displacement);
+
+                world.activeBird->isStatic = false;
+
+                float launchScale = 3.0f;
+                world.activeBird->velocity = birdDirection * birdMagnitude * launchScale;
+                isBirdSpawned = true;
+            }
+        }
     }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-    {
-        PhysicsCircle* bird = new PhysicsCircle();
-        bird->position = world.startPos;
-        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
-        bird->radius = (rand() % 16) + 10;
-        bird->bounciness = restitution;
-
-        world.add(bird);
-    }*/
 }
 
-// Draw function
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////          Draw          ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void draw()
 {
     BeginDrawing();
@@ -511,25 +551,24 @@ void draw()
     DrawRectanglePro({ 115, 520, 50, 10 }, { 25, 5 }, -60.0f, BROWN);
     DrawRectangle(100, 540, 10, 60, BROWN);
 
-    GuiSliderBar(Rectangle{ 55, 15, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle * -1), &angle, -180, 180);
-
-    GuiSliderBar(Rectangle{ 680, 15, 450, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
-
-    GuiSliderBar(Rectangle{ 75, 75, 1000, 20 }, "Restitution", TextFormat("%.0f", restitution), &restitution, 0, 1);
-
-    Vector2 startPos = { world.startPos.x, world.startPos.y };
-    Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };
-    DrawLineEx(world.startPos, world.startPos + velocity, 3, RED);
-
     for (int i = 0; i < world.objects.size(); i++)
     {
         world.objects[i]->draw();
     }
 
+    if (world.activeBird != nullptr)
+    {
+        world.activeBird->draw();
+    }
+
     EndDrawing();
 }
 
-// Main
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////          Main          ////////////////////////////////////////////////////////
+///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main()
 {
     InitWindow(InitialWidth, InitialHeight, "GAME2005 Logan Medina 101538952");
@@ -539,71 +578,11 @@ int main()
     halfspace.position = { 300, 600 };
     halfspace.grippiness = 1;
     world.add(&halfspace);
-
-    /*PhysicsCircle* circle1 = new PhysicsCircle();
-    PhysicsCircle* circle2 = new PhysicsCircle();
-    PhysicsCircle* circle3 = new PhysicsCircle();
-    PhysicsCircle* circle4 = new PhysicsCircle();
-    PhysicsCircle* circle5 = new PhysicsCircle();
-
-    circle1->position = { 25, 300 };
-    circle2->position = { 25, 311 };
-    circle3->position = { 100, 300 };
-    circle4->position = { 200, 585 };
-    circle5->position = { 300, 585 };
-
-    circle1->velocity = { xCircle1, yCircle1 };
-    circle2->velocity = { xCircle2, yCircle2 };
-    circle3->velocity = { xCircle3, yCircle3 };
-    circle4->velocity = { xCircle4, yCircle4 };
-    circle5->velocity = { xCircle5, yCircle5 };
-
-    circle1->mass = mass1;
-    circle2->mass = mass2;
-    circle3->mass = mass3;
-    circle4->mass = mass4;
-    circle5->mass = mass5;
-
-    circle1->color = RED;
-    circle2->color = GREEN;
-    circle3->color = BLUE;
-    circle4->color = YELLOW;
-    circle5->color = PURPLE;
-
-    circle1->bounciness = restitution;
-    circle2->bounciness = restitution;
-    circle3->bounciness = restitution;
-    circle4->bounciness = restitution;
-    circle5->bounciness = restitution;
-
-    world.add(circle1);
-    world.add(circle2);
-    world.add(circle3);
-    world.add(circle4);
-    world.add(circle5);*/
    
     while (!WindowShouldClose())
     {
         update();
         draw();
-
-        /*GuiSliderBar(Rectangle{ 75, 105, 100, 20 }, "Circle 1", TextFormat("Mass: %.0f", mass1), &mass1, 1, 10);
-        GuiSliderBar(Rectangle{ 75, 135, 100, 20 }, "Circle 2", TextFormat("Mass: %.0f", mass2), &mass2, 1, 10);
-        GuiSliderBar(Rectangle{ 75, 165, 100, 20 }, "Circle 3", TextFormat("Mass: %.0f", mass3), &mass3, 1, 10);
-        GuiSliderBar(Rectangle{ 75, 195, 100, 20 }, "Circle 4", TextFormat("Mass: %.0f", mass4), &mass4, 1, 10);
-        GuiSliderBar(Rectangle{ 75, 225, 100, 20 }, "Circle 5", TextFormat("Mass: %.0f", mass5), &mass5, 1, 10);
-
-        GuiSliderBar(Rectangle{ 300, 105, 100, 20 }, "Circle 1", TextFormat("Initial X: %.0f", xCircle1), &xCircle1, 0, 100);
-        GuiSliderBar(Rectangle{ 300, 135, 100, 20 }, "Circle 2", TextFormat("Initial X: %.0f", xCircle2), &xCircle2, 0, 100);
-        GuiSliderBar(Rectangle{ 300, 165, 100, 20 }, "Circle 3", TextFormat("Initial X: %.0f", xCircle3), &xCircle3, 0, 100);
-        GuiSliderBar(Rectangle{ 300, 195, 100, 20 }, "Circle 4", TextFormat("Initial X: %.0f", xCircle4), &xCircle4, 0, 100);
-        GuiSliderBar(Rectangle{ 300, 225, 100, 20 }, "Circle 5", TextFormat("Initial X: %.0f", xCircle5), &xCircle5, 0, 100);
-
-        GuiSliderBar(Rectangle{ 525, 105, 100, 20 }, "Circle 1", TextFormat("Initial Y: %.0f", yCircle1), &yCircle1, 0, 100);
-        GuiSliderBar(Rectangle{ 525, 135, 100, 20 }, "Circle 2", TextFormat("Initial Y: %.0f", yCircle2), &yCircle2, 0, 100);
-        GuiSliderBar(Rectangle{ 525, 165, 100, 20 }, "Circle 3", TextFormat("Initial Y: %.0f", yCircle3), &yCircle3, 0, 100);
-        GuiSliderBar(Rectangle{ 525, 195, 100, 20 }, "Circle 4", TextFormat("Initial Y: %.0f", yCircle4), &yCircle4, 0, 100);
-        GuiSliderBar(Rectangle{ 525, 225, 100, 20 }, "Circle 5", TextFormat("Initial Y: %.0f", yCircle5), &yCircle5, 0, 100);*/
     }
 
     CloseWindow();
