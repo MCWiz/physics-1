@@ -65,6 +65,7 @@ float yCircle5 = 0.0f;
 enum PhysicsShape
 {
     CIRCLE,
+    RECT,
     HALF_SPACE
 };
 
@@ -114,6 +115,23 @@ public:
     PhysicsShape shape() override
     {
         return CIRCLE;
+    }
+};
+
+class PhysicsRect : public PhysicsObj
+{
+public:
+    float sizeX = 10;
+    float sizeY = 10;
+
+    void draw() override
+    {
+        DrawRectangle(position.x, position.y, sizeX, sizeY, RED);
+    }
+
+    PhysicsShape shape() override
+    {
+        return RECT;
     }
 };
 
@@ -170,7 +188,7 @@ class PhysicsWorld
 public:
     std::vector<PhysicsObj*> objects;
     Vector2 accelGravity = { 0, 9 };
-    Vector2 startPos = { 50, 600 };
+    Vector2 startPos = { 105, 510 };
 
     void add(PhysicsObj* newObj)
     {
@@ -466,8 +484,20 @@ void update()
         world.add(bird);
     }
 
-    /*x = x + (-sin(time * frequency)) * frequency * amplitude * dt;
-    y = y + (cos(time * frequency)) * frequency * amplitude * dt;*/
+    /*if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    {
+
+    }
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        PhysicsCircle* bird = new PhysicsCircle();
+        bird->position = world.startPos;
+        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
+        bird->radius = (rand() % 16) + 10;
+        bird->bounciness = restitution;
+
+        world.add(bird);
+    }*/
 }
 
 // Draw function
@@ -477,85 +507,15 @@ void draw()
     ClearBackground(BLACK);
     DrawText("Logan Christopher Medina 101538952", 10, float(GetScreenHeight() - 30), 20, LIGHTGRAY);
 
-    /*GuiSliderBar(Rectangle{ 75, 15, 1000, 20 }, "Time", TextFormat("%.2f", time), &time, 0, 240);*/
+    DrawRectanglePro({ 95, 520, 50, 10 }, { 25, 5 }, 60.0f, BROWN);
+    DrawRectanglePro({ 115, 520, 50, 10 }, { 25, 5 }, -60.0f, BROWN);
+    DrawRectangle(100, 540, 10, 60, BROWN);
 
-    /*GuiSliderBar(Rectangle{ 75, 45, 450, 20 }, "Speed", TextFormat("Speed: %.0f", speed), &speed, -300, 300);*/
     GuiSliderBar(Rectangle{ 55, 15, 450, 20 }, "Angle", TextFormat("Angle: %.0f Degrees", angle * -1), &angle, -180, 180);
 
     GuiSliderBar(Rectangle{ 680, 15, 450, 20 }, "Acceleration", TextFormat("Gravity: %.0f", world.accelGravity.y), &world.accelGravity.y, -600, 600);
 
-    GuiSliderBar(Rectangle{ 55, 45, 450, 20 }, "Start", TextFormat("X: %.0f", world.startPos.x), &world.startPos.x, 0, 1200);
-    GuiSliderBar(Rectangle{ 680, 45, 450, 20 }, "Start", TextFormat("Y: %.0f", world.startPos.y), &world.startPos.y, 0, 800);
-
-    if (GuiButton(Rectangle{ 975, 105, 100, 40 }, "Reset"))
-    {
-        for (int i = 0; i < world.objects.size(); i++)
-        {
-            PhysicsObj* object = world.objects[i];
-
-            if (object->shape() == CIRCLE)
-            {
-                auto iterator = (world.objects.begin() + i);
-                PhysicsObj* pointerToPhysicsObj = *iterator;
-                delete pointerToPhysicsObj;
-
-                world.objects.erase(iterator);
-                i--;
-            }
-        }
-
-        PhysicsCircle* circle1 = new PhysicsCircle();
-        PhysicsCircle* circle2 = new PhysicsCircle();
-        PhysicsCircle* circle3 = new PhysicsCircle();
-        PhysicsCircle* circle4 = new PhysicsCircle();
-        PhysicsCircle* circle5 = new PhysicsCircle();
-
-        circle1->position = { 25, 300 };
-        circle2->position = { 25, 311 };
-        circle3->position = { 100, 300 };
-        circle4->position = { 200, 585 };
-        circle5->position = { 300, 585 };
-
-        circle1->velocity = { xCircle1, yCircle1 };
-        circle2->velocity = { xCircle2, yCircle2 };
-        circle3->velocity = { xCircle3, yCircle3 };
-        circle4->velocity = { xCircle4, yCircle4 };
-        circle5->velocity = { xCircle5, yCircle5 };
-
-        circle1->mass = mass1;
-        circle2->mass = mass2;
-        circle3->mass = mass3;
-        circle4->mass = mass4;
-        circle5->mass = mass5;
-
-        circle1->color = RED;
-        circle2->color = GREEN;
-        circle3->color = BLUE;
-        circle4->color = YELLOW;
-        circle5->color = PURPLE;
-
-        circle1->bounciness = restitution;
-        circle2->bounciness = restitution;
-        circle3->bounciness = restitution;
-        circle4->bounciness = restitution;
-        circle5->bounciness = restitution;
-
-        world.add(circle1);
-        world.add(circle2);
-        world.add(circle3);
-        world.add(circle4);
-        world.add(circle5);
-    }
-
-    /*GuiSliderBar(Rectangle{ 660, 135, 450, 20 }, "Halfspace Y", TextFormat("Y: %.0f", halfspace.position.y), &halfspace.position.y, 0, 800);*/
-
-    /*float halfspaceRotation = halfspace.GetRotationInDeg();
-    GuiSliderBar(Rectangle{ 75, 135, 450, 20 }, "Rotation", TextFormat(": %.0f", halfspace.GetRotationInDeg()), &halfspaceRotation, -360, 360);
-    halfspace.SetRotationInDeg(halfspaceRotation);*/
-
     GuiSliderBar(Rectangle{ 75, 75, 1000, 20 }, "Restitution", TextFormat("%.0f", restitution), &restitution, 0, 1);
-
-    /*DrawText(TextFormat("T: %.2f", time), GetScreenWidth() - 130, 10, 30, LIGHTGRAY);*/
 
     Vector2 startPos = { world.startPos.x, world.startPos.y };
     Vector2 velocity = { speed * cos(angle * DEG2RAD), speed * sin(angle * DEG2RAD) };
@@ -565,31 +525,6 @@ void draw()
     {
         world.objects[i]->draw();
     }
-
-    /*halfspace.draw();*/
-
-    /*DrawCircle(x, y, 70, RED);
-    DrawCircle(500 + cos(time * frequency) * amplitude, 500 + sin(time * frequency) * amplitude, 70, GREEN);*/
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //Vector2 location = { 300, 600 };
-    //DrawCircleLines(location.x, location.y, 100, WHITE);
-    //float mass = 8;
-    //
-    //// Force Gravity
-    //Vector2 FGravity = world.accelGravity * mass;
-    //DrawLine(location.x, location.y, location.x + FGravity.x, location.y + FGravity.y, PURPLE);
-
-    //// Force Normal
-    //Vector2 FgPerp = halfspace.GetNormal() * Vector2DotProduct(FGravity, halfspace.GetNormal());
-    //Vector2 Fnormal = FgPerp * -1;
-    //DrawLine(location.x, location.y, location.x + Fnormal.x, location.y + Fnormal.y, GREEN);
-
-    //// Force Friction
-    //Vector2 FgPara = FGravity - FgPerp;
-    //Vector2 Ffriction = FgPara * -1;
-    //DrawLine(location.x, location.y, location.x + Ffriction.x, location.y + Ffriction.y, ORANGE);
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     EndDrawing();
 }
@@ -605,7 +540,7 @@ int main()
     halfspace.grippiness = 1;
     world.add(&halfspace);
 
-    PhysicsCircle* circle1 = new PhysicsCircle();
+    /*PhysicsCircle* circle1 = new PhysicsCircle();
     PhysicsCircle* circle2 = new PhysicsCircle();
     PhysicsCircle* circle3 = new PhysicsCircle();
     PhysicsCircle* circle4 = new PhysicsCircle();
@@ -645,14 +580,14 @@ int main()
     world.add(circle2);
     world.add(circle3);
     world.add(circle4);
-    world.add(circle5);
+    world.add(circle5);*/
    
     while (!WindowShouldClose())
     {
         update();
         draw();
 
-        GuiSliderBar(Rectangle{ 75, 105, 100, 20 }, "Circle 1", TextFormat("Mass: %.0f", mass1), &mass1, 1, 10);
+        /*GuiSliderBar(Rectangle{ 75, 105, 100, 20 }, "Circle 1", TextFormat("Mass: %.0f", mass1), &mass1, 1, 10);
         GuiSliderBar(Rectangle{ 75, 135, 100, 20 }, "Circle 2", TextFormat("Mass: %.0f", mass2), &mass2, 1, 10);
         GuiSliderBar(Rectangle{ 75, 165, 100, 20 }, "Circle 3", TextFormat("Mass: %.0f", mass3), &mass3, 1, 10);
         GuiSliderBar(Rectangle{ 75, 195, 100, 20 }, "Circle 4", TextFormat("Mass: %.0f", mass4), &mass4, 1, 10);
@@ -668,7 +603,7 @@ int main()
         GuiSliderBar(Rectangle{ 525, 135, 100, 20 }, "Circle 2", TextFormat("Initial Y: %.0f", yCircle2), &yCircle2, 0, 100);
         GuiSliderBar(Rectangle{ 525, 165, 100, 20 }, "Circle 3", TextFormat("Initial Y: %.0f", yCircle3), &yCircle3, 0, 100);
         GuiSliderBar(Rectangle{ 525, 195, 100, 20 }, "Circle 4", TextFormat("Initial Y: %.0f", yCircle4), &yCircle4, 0, 100);
-        GuiSliderBar(Rectangle{ 525, 225, 100, 20 }, "Circle 5", TextFormat("Initial Y: %.0f", yCircle5), &yCircle5, 0, 100);
+        GuiSliderBar(Rectangle{ 525, 225, 100, 20 }, "Circle 5", TextFormat("Initial Y: %.0f", yCircle5), &yCircle5, 0, 100);*/
     }
 
     CloseWindow();
