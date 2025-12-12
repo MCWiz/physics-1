@@ -8,6 +8,7 @@ See documentation here: https://www.raylib.com/, and examples here: https://www.
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 #include "game.h"
+#include <string>
 #include <vector>
 
 const unsigned int TARGET_FPS = 50;
@@ -17,6 +18,7 @@ float restitution = 0.9f;
 bool isBirdSpawned = false;
 float spawnRadius = 10.0f;
 float slingshotRadius = 100.0f;
+float birdIndex = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
@@ -75,12 +77,12 @@ public:
 class PhysicsRect : public PhysicsObj
 {
 public:
-    float sizeX = 10;
-    float sizeY = 10;
+    Vector2 size = { 10, 10 };
 
     void draw() override
     {
-        DrawRectangle(position.x, position.y, sizeX, sizeY, RED);
+        Vector2 offsPos = position - (size / 2);
+        DrawRectangle(offsPos.x, offsPos.y, size.x, size.y, color);
     }
 
     PhysicsShape shape() override
@@ -141,11 +143,15 @@ bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB);
 bool CircleHalfspaceOverlap(PhysicsCircle* circle, PhysicsHalfspace* halfspace);
 bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* halfspace);
 
+bool RectangleAABBCollision(PhysicsRect* rectA, PhysicsRect* rectB);
+bool RectHalfspaceCollisionCheck(PhysicsRect* rect, PhysicsHalfspace* halfspace);
+bool RectangleCircleCollision(PhysicsRect* rect, PhysicsCircle* circle);
+
 class PhysicsWorld
 {
 public:
     std::vector<PhysicsObj*> objects;
-    PhysicsCircle* activeBird;
+    PhysicsObj* activeBird;
     Vector2 accelGravity = { 0, 9 };
     Vector2 startPos = { 105, 510 };
 
@@ -232,6 +238,7 @@ public:
     {
         for (int i = 0; i < objects.size(); i++)
         {
+
             for (int j = i + 1; j < objects.size(); j++)
             {
                 PhysicsObj* objectPointerA = objects[i];
@@ -240,10 +247,13 @@ public:
                 PhysicsShape shapeOfA = objectPointerA->shape();
                 PhysicsShape shapeOfB = objectPointerB->shape();
 
+
+
                 if (shapeOfA == CIRCLE && shapeOfB == CIRCLE)
                 {
                     CircleCircleCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsCircle*)objectPointerB);
                 }
+                
                 else if (shapeOfA == CIRCLE && shapeOfB == HALF_SPACE)
                 {
                     CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerA, (PhysicsHalfspace*)objectPointerB);
@@ -251,6 +261,27 @@ public:
                 else if (shapeOfA == HALF_SPACE && shapeOfB == CIRCLE)
                 {
                     CircleHalfspaceCollisionCheck((PhysicsCircle*)objectPointerB, (PhysicsHalfspace*)objectPointerA);
+                }
+                
+                else if (shapeOfA == RECT && shapeOfB == RECT)
+                {
+                    RectangleAABBCollision((PhysicsRect*)objectPointerA, (PhysicsRect*)objectPointerB);
+                }
+                else if (shapeOfA == RECT && shapeOfB == HALF_SPACE)
+                {
+                    RectHalfspaceCollisionCheck((PhysicsRect*)objectPointerA, (PhysicsHalfspace*)objectPointerB);
+                }
+                else if (shapeOfA == HALF_SPACE && shapeOfB == RECT)
+                {
+                    RectHalfspaceCollisionCheck((PhysicsRect*)objectPointerB, (PhysicsHalfspace*)objectPointerA);
+                }
+                else if (shapeOfA == RECT && shapeOfB == CIRCLE)
+                {
+                    RectangleCircleCollision((PhysicsRect*)objectPointerA, (PhysicsCircle*)objectPointerB);
+                }
+                else if (shapeOfA == CIRCLE && shapeOfB == RECT)
+                {
+                    RectangleCircleCollision((PhysicsRect*)objectPointerB, (PhysicsCircle*)objectPointerA);
                 }
             }
         }
@@ -261,15 +292,41 @@ public:
             {
                 PhysicsObj* objectPointer = objects[i];
                 PhysicsShape objectShape = objectPointer->shape();
-                PhysicsCircle* birdPointer = activeBird;
 
-                if (objectShape == CIRCLE)
+
+                if (activeBird->shape() == CIRCLE)
                 {
-                    CircleCircleCollisionCheck(birdPointer, (PhysicsCircle*)objectPointer);
+                    PhysicsCircle* birdPointer = (PhysicsCircle*)activeBird;
+                    
+                    if (objectShape == CIRCLE)
+                    {
+                        CircleCircleCollisionCheck(birdPointer, (PhysicsCircle*)objectPointer);
+                    }
+                    else if (objectShape == HALF_SPACE)
+                    {
+                        CircleHalfspaceCollisionCheck(birdPointer, (PhysicsHalfspace*)objectPointer);
+                    }
+                    else if (objectShape == RECT)
+                    {
+                        RectangleCircleCollision((PhysicsRect*)objectPointer, birdPointer);
+                    }
                 }
-                else if (objectShape == HALF_SPACE)
+                else if (activeBird->shape() == RECT)
                 {
-                    CircleHalfspaceCollisionCheck(birdPointer, (PhysicsHalfspace*)objectPointer);
+                    PhysicsRect* birdPointer = (PhysicsRect*)activeBird;
+                    
+                    if (objectShape == RECT)
+                    {
+                        RectangleAABBCollision(birdPointer, (PhysicsRect*)objectPointer);
+                    }
+                    else if (objectShape == HALF_SPACE)
+                    {
+                        RectHalfspaceCollisionCheck(birdPointer, (PhysicsHalfspace*)objectPointer);
+                    }
+                    else if (objectShape == CIRCLE)
+                    {
+                        RectangleCircleCollision(birdPointer, (PhysicsCircle*)objectPointer);
+                    }
                 }
             }
         }
@@ -426,11 +483,180 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
     }
 }
 
+bool RectangleAABBCollision(PhysicsRect* rectA, PhysicsRect* rectB)
+{
+    Vector2 posA = rectA->position;
+    Vector2 posB = rectB->position;
+    Vector2 sizeA = rectA->size/2;
+    Vector2 sizeB = rectB->size/2;
+
+    Vector2 diff = rectB->position - rectA->position;
+    Vector2 sizedist = (rectA->size + rectB->size)/2;
+    
+    if (abs(diff.x) < sizedist.x && abs(diff.y) < sizedist.y)
+    {
+        //* AABB Collision *//
+        Vector2 overlap = { sizedist.x - abs(diff.x) , sizedist.y - abs(diff.y) };
+        if (overlap.x < overlap.y)
+        {
+            overlap.y = 0;
+            if (rectA->position.x > rectB->position.x)
+            {
+                overlap.x *= -1;
+            }
+            rectA->position.x -= overlap.x / 2;
+            rectB->position.x += overlap.x / 2;
+        }
+        else if (overlap.y < overlap.x)
+        {
+            overlap.x = 0;
+            if (rectA->position.y > rectB->position.y)
+            {
+                overlap.y *= -1;
+            }
+            rectA->position.y -= overlap.y / 2;
+            rectB->position.y += overlap.y / 2;
+        }
+
+
+
+        //* Kinematic Forces *//
+        Vector2 normalAToB = Vector2Normalize(overlap);
+        
+        Vector2 velocityBRelativeToA = rectB->velocity - rectA->velocity;
+        float closingVelocity1D = Vector2DotProduct(velocityBRelativeToA, normalAToB);
+
+        if (closingVelocity1D >= 0) return true;
+
+        float restitution = rectA->bounciness * rectB->bounciness;
+        float totalMass = rectA->mass + rectB->mass;
+        float impulseMagnitude = ((1.0 + restitution) * closingVelocity1D * rectA->mass * rectB->mass) / totalMass;
+
+        Vector2 impulseB = normalAToB * -impulseMagnitude;
+        Vector2 impulseA = normalAToB * impulseMagnitude;
+
+        rectA->velocity += impulseA / rectA->mass;
+        rectB->velocity += impulseB / rectB->mass;
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+bool RectHalfspaceCollisionCheck(PhysicsRect* rect, PhysicsHalfspace* halfspace)
+{
+    Vector2 halfSize = rect->size / 2;
+    Vector2 closestPoint;
+    closestPoint.x = Clamp(halfspace->position.x, rect->position.x - halfSize.x, rect->position.x + halfSize.x);
+    closestPoint.y = Clamp(halfspace->position.y, rect->position.y - halfSize.y, rect->position.y + halfSize.y);
+
+    Vector2 displacementToRect = rect->position - halfspace->position;
+
+    float dot = Vector2DotProduct(displacementToRect, halfspace->GetNormal());
+    Vector2 projectDisplacementOntoNorm = halfspace->GetNormal() * dot;
+
+    float overlap = halfSize.y - dot;
+
+
+    if (overlap > 0)
+    {
+        Vector2 mtv = halfspace->GetNormal() * overlap;
+        rect->position += mtv;
+
+        // Get Grav Forces
+        Vector2 FGravity = rect->velocity;
+
+        // Apply Normal
+        Vector2 FgPerp = halfspace->GetNormal() * Vector2DotProduct(FGravity, halfspace->GetNormal());
+        Vector2 FNormal = FgPerp * -1;
+        rect->netForce += FNormal;
+        DrawLineEx(rect->position, rect->position + FNormal, 3, GREEN);
+
+        // Friction
+        float u = rect->grippiness * halfspace->grippiness;
+        Vector2 FgPara = FGravity - FgPerp;
+        float frictionMagnitude = u * Vector2Length(FNormal); // Max magnitude of force of friction
+
+        if (frictionMagnitude > Vector2Length(FgPara))
+        {
+            frictionMagnitude = Vector2Length(FgPara);
+        }
+
+        Vector2 frictionDirection = Vector2Normalize(FgPara) * -1; // Direction of force of friction
+        Vector2 Ffriction = frictionDirection * frictionMagnitude;
+
+        rect->netForce += Ffriction;
+        DrawLineEx(rect->position, rect->position + Ffriction, 3, ORANGE);
+
+        // Bouncing
+
+        float closingVelocity1D = Vector2DotProduct(rect->velocity, halfspace->GetNormal());
+
+        if (closingVelocity1D >= 0) return true;
+
+        float restitution = rect->bounciness * halfspace->bounciness;
+
+        rect->velocity += halfspace->GetNormal() * closingVelocity1D * -(1.0f + restitution);
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+bool RectangleCircleCollision(PhysicsRect* rect, PhysicsCircle* circle)
+{
+    Vector2 halfSize = rect->size / 2;
+    Vector2 closestPoint;
+    closestPoint.x = Clamp(circle->position.x, rect->position.x - halfSize.x, rect->position.x + halfSize.x);
+    closestPoint.y = Clamp(circle->position.y, rect->position.y - halfSize.y, rect->position.y + halfSize.y);
+
+    Vector2 displacementToRect = closestPoint - circle->position;
+    float dist = Vector2Length(displacementToRect);
+
+    if (dist < circle->radius)
+    {
+        //* Overlap *//
+        Vector2 normalCircleToRect = Vector2Normalize(displacementToRect);
+        float overlap = (dist - circle->radius);
+
+        circle->position += normalCircleToRect * overlap / 2;
+        rect->position -= normalCircleToRect * overlap / 2;
+
+
+        //* Kinematics *//
+        Vector2 velRectRelativeToCircle = rect->velocity - circle->velocity;
+        float closingVelocity1D = Vector2DotProduct(velRectRelativeToCircle, normalCircleToRect);
+
+        if (closingVelocity1D >= 0) return true;
+
+        float restitution = circle->bounciness * rect->bounciness;
+        float totalMass = circle->mass + rect->mass;
+        float impulseMagnitude = ((1.0 + restitution) * closingVelocity1D * circle->mass * rect->mass) / totalMass;
+
+        Vector2 impulseRect = normalCircleToRect * -impulseMagnitude;
+        Vector2 impulseCircle = normalCircleToRect * impulseMagnitude;
+
+        circle->velocity += impulseCircle / circle->mass;
+        rect->velocity += impulseRect / rect->mass;
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////        Cleanup         ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void cleanup()
 {
     for (int i = 0; i < world.objects.size(); i++)
@@ -459,7 +685,6 @@ void cleanup()
             isBirdSpawned = false;
         }
     }
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -467,6 +692,9 @@ void cleanup()
 ///////////////////////////////////////////////         Update         ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool aimingBird = false;
+
 void update()
 {
     Vector2 mouse = GetMousePosition();
@@ -476,54 +704,81 @@ void update()
     cleanup();
     world.update();
 
+    if (world.activeBird != nullptr)
+    {
+        if (IsKeyPressed(KEY_R))
+        {
+            delete world.activeBird;
+            world.activeBird = nullptr;
+            isBirdSpawned = false;
+        }
+    }
+
     if (IsKeyPressed(KEY_SPACE))
     {
-        PhysicsCircle* bird = new PhysicsCircle();
-        bird->position = world.startPos;
-        bird->velocity = { speed * (float)cos(angle * DEG2RAD), speed * (float)sin(angle * DEG2RAD) };
-        bird->radius = (rand() % 16) + 10;
-        bird->bounciness = restitution;
-
-        world.add(bird);
+        if (birdIndex == 0)
+        {
+            birdIndex = 1;
+        }
+        else if (birdIndex == 1)
+        {
+            birdIndex = 0;
+        }
     }
 
     if (!isBirdSpawned)
     {
-        if (CheckCollisionPointCircle(mouse, world.startPos, spawnRadius))
+        if (!aimingBird)
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            {
-                PhysicsCircle* bird = new PhysicsCircle();
-                bird->position = world.startPos;
-                bird->bounciness = restitution;
-                bird->isStatic = true;
-                world.activeBird = bird;
-            }
-        }
-        if (CheckCollisionPointCircle(mouse, world.startPos, slingshotRadius))
-        {
-            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-            {
-                if (world.activeBird != nullptr)
-                {
-                    Vector2 displacement = mouse - world.startPos;
-                    float dist = Vector2Length(displacement);
-                    if (dist > slingshotRadius)
-                    {
-                        displacement = Vector2Normalize(displacement) * slingshotRadius;
-                    }
-                    world.activeBird->position = world.startPos + displacement;
+            DrawCircleV(world.startPos, spawnRadius, WHITE);
 
-                    DrawLineEx(world.startPos, world.activeBird->position, 3, RED);
+            if (CheckCollisionPointCircle(mouse, world.startPos, spawnRadius))
+            {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                    if (birdIndex == 0)
+                    {
+                        PhysicsCircle* bird = new PhysicsCircle();
+
+                        bird->position = world.startPos;
+                        bird->bounciness = restitution;
+                        bird->isStatic = true;
+                        world.activeBird = bird;
+                    }
+                    else if (birdIndex == 1)
+                    {
+                        PhysicsRect* bird = new PhysicsRect();
+                        bird->size = { 20, 20 };
+
+                        bird->position = world.startPos;
+                        bird->bounciness = restitution;
+                        bird->isStatic = true;
+                        world.activeBird = bird;
+                    }
+
+                    aimingBird = true;
                 }
             }
         }
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (aimingBird && world.activeBird != nullptr)
         {
-            if (world.activeBird != nullptr)
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            {
+                Vector2 displacement = mouse - world.startPos;
+                float dist = Vector2Length(displacement);
+                if (dist > slingshotRadius)
+                {
+                    displacement = Vector2Normalize(displacement) * slingshotRadius;
+                }
+                world.activeBird->position = world.startPos + displacement;
+
+                DrawLineEx(world.startPos, world.activeBird->position, 3, RED);
+            }
+
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
             {
                 Vector2 displacement = world.startPos - world.activeBird->position;
-                float birdMagnitude = Vector2Length(displacement);
+                float birdMagnitude = Vector2Length(displacement) * 0.75;
                 Vector2 birdDirection = Vector2Normalize(displacement);
 
                 world.activeBird->isStatic = false;
@@ -531,6 +786,7 @@ void update()
                 float launchScale = 3.0f;
                 world.activeBird->velocity = birdDirection * birdMagnitude * launchScale;
                 isBirdSpawned = true;
+                aimingBird = false;
             }
         }
     }
@@ -545,7 +801,7 @@ void draw()
 {
     BeginDrawing();
     ClearBackground(BLACK);
-    DrawText("Logan Christopher Medina 101538952", 10, float(GetScreenHeight() - 30), 20, LIGHTGRAY);
+    DrawText("Assignment 3", 10, float(GetScreenHeight() - 30), 20, LIGHTGRAY);
 
     DrawRectanglePro({ 95, 520, 50, 10 }, { 25, 5 }, 60.0f, BROWN);
     DrawRectanglePro({ 115, 520, 50, 10 }, { 25, 5 }, -60.0f, BROWN);
@@ -564,11 +820,74 @@ void draw()
     EndDrawing();
 }
 
+
+
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////          Main          ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void SpawnInitialObjects()
+{
+    float mass = 16, bounce = 0.2f, grip = 2;
+
+    //Left beam
+    PhysicsRect* rect = new PhysicsRect();
+    rect->position = { 700, halfspace.position.y - 40 };
+    rect->size = { 20, 80 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+    //Middle beam
+    rect = new PhysicsRect();
+    rect->position = { 780, halfspace.position.y - 40 };
+    rect->size = { 20, 80 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+    //Right beam
+    rect = new PhysicsRect();
+    rect->position = { 860, halfspace.position.y - 40 };
+    rect->size = { 20, 80 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+
+    // Left Roof
+    rect = new PhysicsRect();
+    rect->position = { 740, halfspace.position.y - 90 };
+    rect->size = { 80, 20 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+    // Right Roof
+    rect = new PhysicsRect();
+    rect->position = { 820, halfspace.position.y - 90 };
+    rect->size = { 80, 20 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+
+
+    // Top Left Beam
+    rect = new PhysicsRect();
+    rect->position = { 740, halfspace.position.y - 140 };
+    rect->size = { 20, 80 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+    // Top Right Beam
+    rect = new PhysicsRect();
+    rect->position = { 820, halfspace.position.y - 140 };
+    rect->size = { 20, 80 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+
+    //Top Roof
+    rect = new PhysicsRect();
+    rect->position = { 780, halfspace.position.y - 200 };
+    rect->size = { 80, 20 };
+    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    world.add(rect);
+}
+
 int main()
 {
     InitWindow(InitialWidth, InitialHeight, "GAME2005 Logan Medina 101538952");
@@ -578,6 +897,8 @@ int main()
     halfspace.position = { 300, 600 };
     halfspace.grippiness = 1;
     world.add(&halfspace);
+
+    SpawnInitialObjects();
    
     while (!WindowShouldClose())
     {
