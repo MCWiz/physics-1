@@ -11,7 +11,7 @@ See documentation here: https://www.raylib.com/, and examples here: https://www.
 #include <string>
 #include <vector>
 
-const unsigned int TARGET_FPS = 50;
+const unsigned int TARGET_FPS = 60;
 float dt = 1.0f / TARGET_FPS;
 float time = 0;
 float restitution = 0.9f;
@@ -62,6 +62,8 @@ class PhysicsCircle : public PhysicsObj
 {
 public:
     float radius = 10;
+    bool isPig = false;
+    float pigResistance = 20;
 
     void draw() override
     {
@@ -131,6 +133,15 @@ public:
         return HALF_SPACE;
     }
 };
+
+
+
+// Physics Object Pig
+//class Pig : public PhysicsCircle
+//{
+//public:
+//    float resistence = 40;
+//};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
@@ -336,6 +347,29 @@ public:
 PhysicsWorld world;
 PhysicsHalfspace halfspace;
 
+
+void KillPig(PhysicsCircle* pig)
+{
+    for (int i = 0; i < world.objects.size(); i++)
+    {
+        PhysicsObj* object = world.objects[i];
+
+        if (object == pig)
+        {
+            auto iterator = (world.objects.begin() + i);
+            PhysicsObj* pointerToPhysicsObj = *iterator;
+            delete pointerToPhysicsObj;
+
+            world.objects.erase(iterator);
+            i--;
+
+            return;
+        }
+    }
+}
+
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////    Collision Checks    ////////////////////////////////////////////////////////
@@ -400,6 +434,18 @@ bool CircleCircleCollisionCheck(PhysicsCircle* circleA, PhysicsCircle* circleB)
         circleA->velocity += impulseA / circleA->mass;
         circleB->velocity += impulseB / circleB->mass;
 
+
+
+        float velDiff = Vector2Length(circleA->velocity - circleB->velocity);
+        if (circleA->isPig && velDiff > circleA->pigResistance * 2)
+        {
+            KillPig(circleA);
+        }
+        if (circleB->isPig && velDiff > circleB->pigResistance)
+        {
+            KillPig(circleB);
+        }
+
         return true;
     }
     else
@@ -419,6 +465,9 @@ bool CircleHalfspaceOverlap(PhysicsCircle* circle, PhysicsHalfspace* halfspace)
     DrawLineEx(circle->position, circle->position - projectDisplacementOntoNorm, 1, GRAY);
     Vector2 midpoint = circle->position - projectDisplacementOntoNorm * 0.5f;
     DrawText(TextFormat("D: %6.0f", dot), midpoint.x, midpoint.y, 30, GRAY);
+
+
+
 
     return dot < circle->radius ? true : false;
 }
@@ -475,6 +524,15 @@ bool CircleHalfspaceCollisionCheck(PhysicsCircle* circle, PhysicsHalfspace* half
 
         circle->velocity += halfspace->GetNormal() * closingVelocity1D * -(1.0f + restitution);
 
+
+
+
+
+        if (circle->isPig && Vector2Length(circle->velocity) > circle->pigResistance * 2)
+        {
+            KillPig(circle);
+        }
+
         return true;
     }
     else
@@ -522,11 +580,17 @@ bool RectangleAABBCollision(PhysicsRect* rectA, PhysicsRect* rectB)
 
         //* Kinematic Forces *//
         Vector2 normalAToB = Vector2Normalize(overlap);
-        
         Vector2 velocityBRelativeToA = rectB->velocity - rectA->velocity;
         float closingVelocity1D = Vector2DotProduct(velocityBRelativeToA, normalAToB);
 
-        if (closingVelocity1D >= 0) return true;
+        float u = rectA->grippiness * rectB->grippiness;
+        Vector2 forceA = velocityBRelativeToA * u;
+        Vector2 forceB = velocityBRelativeToA * u;
+
+        rectA->netForce += forceB * Vector2{1, 0} * Vector2Length(normalAToB);
+        rectB->netForce -= forceA * Vector2{ 1, 0 } * Vector2Length(normalAToB);
+
+        //Bounciness
 
         float restitution = rectA->bounciness * rectB->bounciness;
         float totalMass = rectA->mass + rectB->mass;
@@ -643,6 +707,13 @@ bool RectangleCircleCollision(PhysicsRect* rect, PhysicsCircle* circle)
         circle->velocity += impulseCircle / circle->mass;
         rect->velocity += impulseRect / rect->mass;
 
+
+        float velDiff = Vector2Length(circle->netForce - rect->netForce);
+        if (circle->isPig && velDiff > circle->pigResistance)
+        {
+            KillPig(circle);
+        }
+
         return true;
     }
     else
@@ -650,6 +721,8 @@ bool RectangleCircleCollision(PhysicsRect* rect, PhysicsCircle* circle)
         return false;
     }
 }
+
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////                        ////////////////////////////////////////////////////////
@@ -730,7 +803,14 @@ void update()
     {
         if (!aimingBird)
         {
-            DrawCircleV(world.startPos, spawnRadius, WHITE);
+            if (birdIndex == 0)
+            {
+                DrawCircleV(world.startPos, spawnRadius, RED);
+            }
+            else
+            {
+                DrawRectangleV(world.startPos - Vector2{ 10, 10 },{ 20, 20 }, SKYBLUE);
+            }
 
             if (CheckCollisionPointCircle(mouse, world.startPos, spawnRadius))
             {
@@ -739,20 +819,22 @@ void update()
                     if (birdIndex == 0)
                     {
                         PhysicsCircle* bird = new PhysicsCircle();
-
+                        bird->color = RED;
                         bird->position = world.startPos;
                         bird->bounciness = restitution;
                         bird->isStatic = true;
+                        bird->mass = 4;
                         world.activeBird = bird;
                     }
                     else if (birdIndex == 1)
                     {
                         PhysicsRect* bird = new PhysicsRect();
                         bird->size = { 20, 20 };
-
+                        bird->color = SKYBLUE;
                         bird->position = world.startPos;
                         bird->bounciness = restitution;
                         bird->isStatic = true;
+                        bird->mass = 20;
                         world.activeBird = bird;
                     }
 
@@ -832,38 +914,44 @@ void draw()
 
 void SpawnInitialObjects()
 {
-    float mass = 16, bounce = 0.2f, grip = 2;
+    float mass = 10, bounce = 0.2f, grip = 1;
+    Color color = BROWN;
 
     //Left beam
     PhysicsRect* rect = new PhysicsRect();
     rect->position = { 700, halfspace.position.y - 40 };
     rect->size = { 20, 80 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce; 
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
     //Middle beam
     rect = new PhysicsRect();
     rect->position = { 780, halfspace.position.y - 40 };
     rect->size = { 20, 80 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
     //Right beam
     rect = new PhysicsRect();
     rect->position = { 860, halfspace.position.y - 40 };
     rect->size = { 20, 80 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
 
     // Left Roof
     rect = new PhysicsRect();
     rect->position = { 740, halfspace.position.y - 90 };
     rect->size = { 80, 20 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
     // Right Roof
     rect = new PhysicsRect();
     rect->position = { 820, halfspace.position.y - 90 };
     rect->size = { 80, 20 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
 
 
@@ -871,22 +959,62 @@ void SpawnInitialObjects()
     rect = new PhysicsRect();
     rect->position = { 740, halfspace.position.y - 140 };
     rect->size = { 20, 80 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
     // Top Right Beam
     rect = new PhysicsRect();
     rect->position = { 820, halfspace.position.y - 140 };
     rect->size = { 20, 80 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
 
     //Top Roof
     rect = new PhysicsRect();
     rect->position = { 780, halfspace.position.y - 200 };
     rect->size = { 80, 20 };
-    rect->mass = mass; rect->bounciness = bounce; rect->grippiness = grip;
+    rect->mass = mass; rect->bounciness = bounce;
+    rect->grippiness = grip; rect->color = color;
     world.add(rect);
+
+
+
 }
+
+void SpawnPigs()
+{
+
+    PhysicsCircle* pig = new PhysicsCircle();
+    pig->position = { 740, halfspace.position.y - 10 };
+    pig->radius = 20;
+    pig->pigResistance = 120;
+    pig->color = GREEN; pig->isPig = true;
+    world.add(pig);
+
+    pig = new PhysicsCircle();
+    pig->position = { 820, halfspace.position.y - 10 };
+    pig->radius = 20;
+    pig->pigResistance = 120;
+    pig->color = GREEN; pig->isPig = true;
+    world.add(pig);
+
+    pig = new PhysicsCircle();
+    pig->position = { 780, halfspace.position.y - 120 };
+    pig->radius = 20;
+    pig->pigResistance = 120;
+    pig->color = GREEN; pig->isPig = true;
+    world.add(pig);
+
+    pig = new PhysicsCircle();
+    pig->position = { 780, halfspace.position.y - 240 };
+    pig->radius = 20;
+    pig->pigResistance = 120;
+    pig->color = GREEN; pig->isPig = true;
+    world.add(pig);
+
+}
+
 
 int main()
 {
@@ -899,6 +1027,7 @@ int main()
     world.add(&halfspace);
 
     SpawnInitialObjects();
+    SpawnPigs();
    
     while (!WindowShouldClose())
     {
